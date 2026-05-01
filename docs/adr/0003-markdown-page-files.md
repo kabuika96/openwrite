@@ -16,9 +16,9 @@ Keep Yjs, Hocuspocus, and Tiptap/ProseMirror as the realtime editing runtime.
 
 Replace SQLite page-content persistence with Markdown page files:
 
-- Each `page:<id>` document is loaded from `data/workspace/pages/<id>.md`.
+- Each `page:<id>` document is loaded from a local Markdown file.
 - Each stored page document is serialized back to that Markdown file.
-- The `page-tree` realtime document remains a Yjs document for now, persisted as a file snapshot under `data/workspace/.openwrite/`.
+- The `page-tree` realtime document remains a Yjs document for now, persisted as a local file snapshot.
 - Legacy SQLite documents are imported only when their target file does not already exist.
 
 The persistence seam remains the Hocuspocus `loadUpdate` / `saveDocument` adapter, so callers do not need to know whether a document is backed by Markdown or a system snapshot.

@@ -6,7 +6,7 @@ OpenWrite is a local-first PWA with a React frontend and a Node backend. The dur
 
 ```text
 Browser PWA
-  -> React workspace shell
+  -> React app shell
   -> Tiptap editor + Yjs page docs
   -> Vite dev proxy
   -> Node Hocuspocus sync/API server
@@ -17,7 +17,7 @@ Browser PWA
 ## Frontend
 
 - `frontend/src/App.tsx` owns bootstrap state and chooses the desktop or mobile shell.
-- `frontend/src/workspace/` owns page-tree navigation, page actions, visit history, sidebar resize behavior, and vault-access context.
+- The page-tree modules own navigation, page actions, visit history, sidebar resize behavior, and vault-access context.
 - `frontend/src/editor/` owns the Tiptap editor surface, slash commands, wiki links, link editing, file/image blocks, clipboard handling, and manual save shortcuts.
 - `frontend/src/sync/` owns Hocuspocus provider setup and page-tree/page-doc sync helpers.
 - `frontend/src/styles/` contains design tokens and print-specific CSS, while `frontend/src/styles.css` contains the app-wide UI rules.
@@ -35,7 +35,7 @@ Browser PWA
 
 ### Opening a Page
 
-1. The workspace selects a page from the vault-derived page tree.
+1. The app selects a page from the vault-derived page tree.
 2. The editor creates a page-doc Hocuspocus session.
 3. The backend loads the page doc from cache when available, otherwise from Markdown.
 4. Tiptap renders the active Yjs document in the browser.

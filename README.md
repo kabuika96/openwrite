@@ -1,6 +1,6 @@
 # OpenWrite
 
-OpenWrite is an open-source, self-hostable writing workspace for notes, docs, agent memory, and project files.
+OpenWrite is an open-source, LAN-hosted, Markdown-native note app.
 
 It gives you a Notion-ish editing surface on top of files you actually own: plain Markdown pages, local attachments, Obsidian-style vault structure, and browser/PWA access from your Mac, iPhone, or any trusted device on your LAN.
 
@@ -18,7 +18,7 @@ OpenWrite is designed to be installed and operated with an AI coding agent. Past
 Install and start OpenWrite from this repository.
 
 Goals:
-- Do not stop unrelated running projects or services.
+- Do not stop unrelated running apps or services.
 - Install dependencies with npm.
 - Copy .env.example to .env if .env does not exist.
 - Start the app with npm run dev.
@@ -121,7 +121,7 @@ The short version:
 
 ```text
 Browser PWA
-  -> React workspace shell
+  -> React app shell
   -> Tiptap/Yjs page editor
   -> Vite proxy
   -> Node Hocuspocus server

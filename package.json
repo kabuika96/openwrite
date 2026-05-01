@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "license": "MIT",
-  "description": "Local-first writing workspace with separate desktop and mobile UX.",
+  "description": "open-source, LAN-hosted, Markdown-native note app",
   "packageManager": "npm@11.11.0",
   "engines": {
     "node": ">=22.0.0",

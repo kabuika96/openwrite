@@ -4,7 +4,7 @@
 
 - `frontend/`: React, Vite, TypeScript PWA.
 - `backend/`: Node API and Markdown/file-backed persistence.
-- `data/`: local workspace files, ignored by git except `.gitkeep`.
+- `data/`: local runtime files, ignored by git except `.gitkeep`.
 - `docs/adr/`: architectural decisions.
 - `.scratch/issues/`: local markdown issue tracker.
 

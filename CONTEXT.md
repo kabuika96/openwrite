@@ -1,10 +1,10 @@
 # OpenWrite Context
 
-OpenWrite is a local-first, realtime block writing workspace for computer and mobile use. It borrows familiar interaction ideas from block editors while using its own product language, visual design, and data model.
+OpenWrite is a local-first, realtime Markdown-native note app for computer and mobile use. It borrows familiar interaction ideas from block editors while using its own product language, visual design, and data model.
 
 ## Domain Language
 
-- Workspace: the local OpenWrite environment served from one machine to browsers on the same LAN.
+- Local server: the OpenWrite environment served from one machine to browsers on the same LAN.
 - Vault: the normal local folder chosen by the user that stores OpenWrite pages as Markdown files.
 - Page tree: the nested page hierarchy derived from Markdown files and same-name child folders in the vault.
 - Page: a named writing surface represented by one Markdown file in the vault.
@@ -22,7 +22,7 @@ OpenWrite is a local-first, realtime block writing workspace for computer and mo
 - Realtime collaboration on the trusted local network.
 - Proven CRDT/editor primitives over hand-rolled concurrent editing.
 - Separate desktop and mobile UX paths where device strengths differ.
-- One useful vertical slice before broader workspace features.
+- One useful vertical slice before broader note-app features.
 - Plain, inspectable durability using a normal Markdown vault folder.
 
 ## First Slice
