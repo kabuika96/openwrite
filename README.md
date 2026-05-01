@@ -4,6 +4,8 @@ OpenWrite is an open-source, LAN-hosted, Markdown-native note app.
 
 It gives you a Notion-ish editing surface on top of files you actually own: plain Markdown pages, local attachments, Obsidian-style vault structure, and browser/PWA access from your Mac, iPhone, or any trusted device on your LAN.
 
+![OpenWrite demo screenshot](docs/assets/openwrite-demo.png)
+
 > Status: early alpha. OpenWrite is for trusted local networks and local vaults, not internet-exposed hosting.
 
 > Agents: start with [AGENTS.md](AGENTS.md). Humans: this README is the map.
