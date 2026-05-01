@@ -6,7 +6,7 @@
   "description": "open-source, LAN-hosted, Markdown-native note app",
   "packageManager": "npm@11.11.0",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.12.0",
     "npm": ">=10.0.0"
   },
   "workspaces": [

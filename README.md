@@ -97,7 +97,7 @@ PRs welcome.
 
 ## Requirements
 
-- Node.js 22 or newer
+- Node.js 22.12 or newer
 - npm 10 or newer
 
 ## Configuration
