@@ -1,7 +1,19 @@
-export function parseInline(text) {
+type MarkNode = { type: string; attrs?: Record<string, any> };
+type InlineNode = { type: string; text?: string; marks?: MarkNode[]; content?: InlineNode[] };
+type InlineToken = { text: string; marks?: MarkNode[] };
+type InlineMatch = RegExpExecArray & { index: number };
+type InlinePattern = {
+  kind: string;
+  pattern: RegExp;
+  toToken: (match: InlineMatch) => InlineToken | null;
+  isValidMatch?: (match: InlineMatch) => boolean;
+};
+type PositionedInlineToken = InlineToken & { index: number; raw: string };
+
+export function parseInline(text: string): InlineNode[] | undefined {
   if (!text) return undefined;
 
-  const nodes = [];
+  const nodes: InlineNode[] = [];
   let cursor = 0;
 
   while (cursor < text.length) {
@@ -17,26 +29,26 @@ export function parseInline(text) {
   return nodes.length > 0 ? nodes : undefined;
 }
 
-export function renderInline(nodes) {
+export function renderInline(nodes: InlineNode[] = []): string {
   return nodes.map(renderInlineNode).join("");
 }
 
-export function textContent(node) {
+export function textContent(node?: InlineNode | null): string {
   if (!node) return "";
   if (node.type === "text") return node.text ?? "";
   return (node.content ?? []).map(textContent).join("");
 }
 
-export function escapeObsidianLinkValue(value) {
+export function escapeObsidianLinkValue(value: unknown): string {
   return String(value ?? "").replace(/\\/g, "\\\\").replace(/\]/g, "\\]");
 }
 
-export function unescapeObsidianLinkValue(value) {
+export function unescapeObsidianLinkValue(value: unknown): string {
   return String(value ?? "").replace(/\\([\\\]])/g, "$1");
 }
 
-function findNextInlineToken(text, cursor) {
-  const patterns = [
+function findNextInlineToken(text: string, cursor: number): PositionedInlineToken | null {
+  const patterns: InlinePattern[] = [
     {
       kind: "wikiLink",
       pattern: /\[\[([^|\]]+)(?:\|([^\]]+))?]]/g,
@@ -82,7 +94,7 @@ function findNextInlineToken(text, cursor) {
     },
   ];
 
-  let best = null;
+  let best: PositionedInlineToken | null = null;
   for (const candidate of patterns) {
     candidate.pattern.lastIndex = cursor;
     const match = getNextValidInlineMatch(candidate, text);
@@ -101,7 +113,7 @@ function findNextInlineToken(text, cursor) {
   return best;
 }
 
-function getNextValidInlineMatch(candidate, text) {
+function getNextValidInlineMatch(candidate: InlinePattern, text: string): InlineMatch | null {
   let match = candidate.pattern.exec(text);
   while (match && candidate.isValidMatch && !candidate.isValidMatch(match)) {
     match = candidate.pattern.exec(text);
@@ -110,9 +122,9 @@ function getNextValidInlineMatch(candidate, text) {
   return match;
 }
 
-function pushText(nodes, text, marks) {
+function pushText(nodes: InlineNode[], text: string, marks?: MarkNode[]): void {
   if (!text) return;
-  const node = {
+  const node: InlineNode = {
     type: "text",
     text: unescapeMarkdown(text),
   };
@@ -120,7 +132,7 @@ function pushText(nodes, text, marks) {
   nodes.push(node);
 }
 
-function renderInlineNode(node) {
+function renderInlineNode(node: InlineNode): string {
   if (node.type === "hardBreak") return "\\\n";
   if (node.type !== "text") return textContent(node);
 
@@ -136,17 +148,17 @@ function renderInlineNode(node) {
   return value;
 }
 
-function renderWikiLink(text, target) {
+function renderWikiLink(text: unknown, target: unknown): string {
   const normalizedTarget = String(target ?? "").trim();
   const displayText = String(text ?? "").trim();
   const alias = displayText && displayText !== normalizedTarget ? `|${escapeObsidianLinkValue(displayText)}` : "";
   return `[[${escapeObsidianLinkValue(normalizedTarget || displayText)}${alias}]]`;
 }
 
-function escapeMarkdown(text) {
+function escapeMarkdown(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/]/g, "\\]");
 }
 
-function unescapeMarkdown(text) {
+function unescapeMarkdown(text: string): string {
   return text.replace(/\\([\\[\]])/g, "$1");
 }

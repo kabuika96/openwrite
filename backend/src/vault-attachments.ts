@@ -3,7 +3,13 @@ import path from "node:path";
 import { writeFileAtomic } from "./page-file.js";
 import { attachmentFilePath, pageIdFromFilePath } from "./vault-paths.js";
 
-export function saveVaultAttachment(vaultPath, input = {}) {
+type SaveAttachmentInput = {
+  data?: Buffer | string | Uint8Array;
+  mimeType?: string;
+  name?: string;
+};
+
+export function saveVaultAttachment(vaultPath: string, input: SaveAttachmentInput = {}) {
   const fileName = normalizeAttachmentFileName(input.name);
   const attachmentsDirectory = path.join(vaultPath, "attachments");
   fs.mkdirSync(attachmentsDirectory, { recursive: true });
@@ -22,7 +28,7 @@ export function saveVaultAttachment(vaultPath, input = {}) {
   };
 }
 
-export function readVaultAttachment(vaultPath, relativePath) {
+export function readVaultAttachment(vaultPath: string, relativePath: string) {
   const filePath = attachmentFilePath(vaultPath, relativePath);
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
 
@@ -34,7 +40,7 @@ export function readVaultAttachment(vaultPath, relativePath) {
   };
 }
 
-export function normalizeAttachmentFileName(name) {
+export function normalizeAttachmentFileName(name: unknown): string {
   const rawBaseName = path.basename(String(name ?? "").trim());
   const cleaned = rawBaseName
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
@@ -44,7 +50,7 @@ export function normalizeAttachmentFileName(name) {
   return cleaned || "File";
 }
 
-export function uniqueAttachmentFilePath(directory, fileName) {
+export function uniqueAttachmentFilePath(directory: string, fileName: string): string {
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension) || "File";
 
@@ -57,9 +63,9 @@ export function uniqueAttachmentFilePath(directory, fileName) {
   throw new Error(`Could not create a unique attachment name for "${fileName}"`);
 }
 
-export function guessMimeType(filePath) {
+export function guessMimeType(filePath: string): string {
   const extension = path.extname(filePath).toLowerCase();
-  const types = {
+  const types: Record<string, string> = {
     ".avif": "image/avif",
     ".css": "text/css",
     ".csv": "text/csv",
@@ -84,6 +90,6 @@ export function guessMimeType(filePath) {
   return types[extension] ?? "application/octet-stream";
 }
 
-export function encodePathSegments(relativePath) {
+export function encodePathSegments(relativePath: string): string {
   return relativePath.split("/").map(encodeURIComponent).join("/");
 }

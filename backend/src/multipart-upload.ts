@@ -1,6 +1,13 @@
 import { readRawBody } from "./http-utils.js";
+import type { IncomingMessage } from "node:http";
 
-export async function readMultipartFiles(request) {
+export type MultipartFile = {
+  data: Buffer;
+  mimeType: string;
+  name: string;
+};
+
+export async function readMultipartFiles(request: IncomingMessage): Promise<MultipartFile[]> {
   const boundary = multipartBoundary(request.headers?.["content-type"] ?? request.headers?.["Content-Type"]);
   if (!boundary) {
     throw Object.assign(new Error("Expected multipart/form-data upload"), { statusCode: 400 });
@@ -10,7 +17,7 @@ export async function readMultipartFiles(request) {
   const boundaryBuffer = Buffer.from(`--${boundary}`);
   const delimiterBuffer = Buffer.from(`\r\n--${boundary}`);
   const headerEndBuffer = Buffer.from("\r\n\r\n");
-  const files = [];
+  const files: MultipartFile[] = [];
   let partStart = body.indexOf(boundaryBuffer);
 
   while (partStart >= 0) {
@@ -44,13 +51,13 @@ export async function readMultipartFiles(request) {
   return files;
 }
 
-export function multipartBoundary(contentType) {
+export function multipartBoundary(contentType: unknown): string | null {
   const match = /(?:^|;)\s*boundary=(?:"([^"]+)"|([^;]+))/i.exec(String(contentType ?? ""));
   return match?.[1] ?? match?.[2] ?? null;
 }
 
-export function parsePartHeaders(rawHeaders) {
-  const headers = {};
+export function parsePartHeaders(rawHeaders: string): Record<string, string> {
+  const headers: Record<string, string> = {};
   for (const line of rawHeaders.split("\r\n")) {
     const separator = line.indexOf(":");
     if (separator < 0) continue;
@@ -60,8 +67,8 @@ export function parsePartHeaders(rawHeaders) {
   return headers;
 }
 
-export function parseContentDisposition(disposition) {
-  const params = {};
+export function parseContentDisposition(disposition: string): Record<string, string> {
+  const params: Record<string, string> = {};
   for (const part of disposition.split(";").slice(1)) {
     const separator = part.indexOf("=");
     if (separator < 0) continue;
@@ -73,7 +80,7 @@ export function parseContentDisposition(disposition) {
   return params;
 }
 
-export function unquoteHeaderValue(value) {
+export function unquoteHeaderValue(value: string): string {
   if (value.startsWith('"') && value.endsWith('"')) {
     return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }

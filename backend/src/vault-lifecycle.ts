@@ -4,7 +4,7 @@ import { getDefaultVaultParentPath, resolveUserPath } from "./vault-registry.js"
 import { createVaultStore } from "./vault-store.js";
 import { revealPathInSystem } from "./system-reveal.js";
 
-export function openInitialVault(options, registry) {
+export function openInitialVault(options: Record<string, any>, registry: any) {
   if (options.vaultStore) return options.vaultStore;
 
   if (options.vaultPath) {
@@ -23,7 +23,7 @@ export function openInitialVault(options, registry) {
   return null;
 }
 
-export function getVaultLifecycleState(vault, registry) {
+export function getVaultLifecycleState(vault: any, registry: any) {
   return {
     defaultParentPath: getDefaultVaultParentPath(),
     needsVault: !vault,
@@ -32,7 +32,7 @@ export function getVaultLifecycleState(vault, registry) {
   };
 }
 
-export function createUserVault(input = {}, registry) {
+export function createUserVault(input: Record<string, any> = {}, registry: any) {
   const name = normalizeVaultName(input.name);
   const parentPath = resolveUserPath(input.parentPath || getDefaultVaultParentPath());
   if (!fs.existsSync(parentPath) || !fs.statSync(parentPath).isDirectory()) {
@@ -49,7 +49,7 @@ export function createUserVault(input = {}, registry) {
   return createVaultStore({ vaultPath, seed: false });
 }
 
-export function openUserVault(input = {}, registry) {
+export function openUserVault(input: Record<string, any> = {}, registry: any) {
   const vaultPath = resolveUserPath(input.vaultPath ?? input.path);
   if (!fs.existsSync(vaultPath) || !fs.statSync(vaultPath).isDirectory()) {
     throw Object.assign(new Error("Vault folder does not exist"), { statusCode: 404 });
@@ -59,12 +59,12 @@ export function openUserVault(input = {}, registry) {
   return createVaultStore({ vaultPath, seed: false });
 }
 
-export function revealVaultInSystem(vault) {
+export function revealVaultInSystem(vault: any) {
   if (!vault) throw Object.assign(new Error("Choose or create a vault first"), { statusCode: 409 });
   revealPathInSystem(vault.vaultPath);
 }
 
-export function normalizeVaultName(name) {
+export function normalizeVaultName(name: unknown): string {
   const cleaned = String(name ?? "")
     .trim()
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
