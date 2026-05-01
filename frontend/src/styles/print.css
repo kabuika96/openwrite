@@ -1,0 +1,118 @@
+@media print {
+  @page {
+    margin: 0.9in 0.7in 0.7in;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  :root {
+    color-scheme: light;
+    background: #ffffff;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+    background: #ffffff;
+    color: #111111;
+  }
+
+  body {
+    min-width: 0;
+  }
+
+  .desktop-workspace,
+  .mobile-workspace,
+  .editor-shell,
+  .editor-stage {
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    background: #ffffff;
+  }
+
+  .desktop-sidebar,
+  .desktop-sidebar-resizer,
+  .mobile-topbar,
+  .mobile-bottom-bar,
+  .mobile-pages,
+  .editor-header-actions,
+  .page-icon-control,
+  .page-title-input,
+  .page-icon-picker,
+  .slash-menu,
+  .text-menu,
+  .link-hover-menu,
+  .empty-line-menu,
+  .details-toggle-button,
+  .app-dialog-backdrop {
+    display: none !important;
+  }
+
+  .editor-header,
+  .mobile-workspace .editor-header {
+    display: block;
+    width: 100%;
+    max-width: var(--editor-page-width);
+    margin: 0 auto;
+    padding: 36pt 0 18pt;
+  }
+
+  .editor-title-area,
+  .page-identity {
+    display: block;
+    min-width: 0;
+  }
+
+  .page-title-print {
+    display: block;
+    margin: 0;
+    color: #111111;
+    font-size: 28pt;
+    font-weight: 700;
+    line-height: 1.15;
+    page-break-after: avoid;
+  }
+
+  .openwrite-prose {
+    width: 100%;
+    max-width: var(--editor-page-width);
+    min-height: 0;
+    margin: 0 auto;
+    color: #111111;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  .openwrite-prose a {
+    color: #111111;
+  }
+
+  .openwrite-prose blockquote {
+    border-left-color: #777777;
+    color: #333333;
+  }
+
+  .openwrite-prose hr {
+    border-top-color: #cccccc;
+  }
+
+  .openwrite-prose details,
+  .openwrite-prose [data-type="details"] {
+    display: block;
+    border-color: #dddddd;
+    background: transparent;
+  }
+
+  .openwrite-prose [data-type="details"] > div {
+    display: block;
+  }
+}

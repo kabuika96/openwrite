@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+coverage/
+.vite/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Local OS/editor files
+.DS_Store
+*.swp
+
+# Local configuration
+.env*
+!.env.example
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local OpenWrite runtime state. Keep the directory so fresh clones have a
+# predictable place for app state, but never commit vaults, caches, or user data.
+data/**
+!data/
+!data/.gitkeep
+
+# Agent scratch space and generated local planning notes.
+.scratch/

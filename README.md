@@ -1,0 +1,149 @@
+# OpenWrite
+
+OpenWrite is an open-source, self-hostable writing workspace for notes, docs, agent memory, and project files.
+
+It gives you a Notion-ish editing surface on top of files you actually own: plain Markdown pages, local attachments, Obsidian-style vault structure, and browser/PWA access from your Mac, iPhone, or any trusted device on your LAN.
+
+> Status: early alpha. OpenWrite is for trusted local networks and local vaults, not internet-exposed hosting.
+
+> Agents: start with [AGENTS.md](AGENTS.md). Humans: this README is the map.
+
+## Install
+
+### Give This To Your Agent
+
+OpenWrite is designed to be installed and operated with an AI coding agent. Paste this into your agent:
+
+```text
+Install and start OpenWrite from this repository.
+
+Goals:
+- Do not stop unrelated running projects or services.
+- Install dependencies with npm.
+- Copy .env.example to .env if .env does not exist.
+- Start the app with npm run dev.
+- Confirm the backend health endpoint works.
+- Tell me the local URL and LAN URL if available.
+- Help me create or open a Markdown vault on first run.
+
+Useful commands:
+- npm install
+- cp .env.example .env
+- npm run dev
+- curl -fsS http://127.0.0.1:8787/api/health
+```
+
+That is the preferred path. The agent can handle ports, existing processes, logs, and first-run vault setup while you stay focused on the app.
+
+### Manual Install
+
+```sh
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`.
+
+The frontend proxies API requests and WebSockets to the backend at `http://127.0.0.1:8787`.
+
+## Why I Built OpenWrite
+
+A few weeks ago, I had OpenClaw and Hermes running 24/7 on a spare MacBook.
+
+The agents were working with files I actually cared about: Markdown notes, PDFs, images, Notion-style pages, etc. I needed one place for those files to live, stay easy to browse, and be editable from my Mac, my iPhone, or whatever device was nearby.
+
+Notion was not it. I had already hit the walls there: lock-in, storage limits, collaboration limits, and pricing gates around things that felt basic. I did not want my files or agent memory trapped in someone else's product.
+
+Obsidian got closer. Local Markdown, plain files, no weird database hostage situation. But my setup was server-first: the files lived on the always-on agent Mac, and I wanted to reach them from other devices on my LAN. Obsidian also is not open source, so it was not the thing I wanted to bend into this shape.
+
+So I built OpenWrite.
+
+The goal is simple:
+
+- files you own
+- real Markdown editing
+- PDF and image viewing
+- browser/PWA access from LAN devices
+- no cloud account
+- no vendor lock-in
+- no storage or collaboration paywalls
+- friendly to Obsidian-style vaults
+- useful for both humans and agents
+
+Markdown is the home base. Files stay portable. The app stays boring where it should be boring, and hackable where it should be hackable.
+
+Bring your notes. Bring your agents. Bring your spare computer running in the corner.
+
+PRs welcome.
+
+## What You Get
+
+- Obsidian-style Markdown vaults with nested pages represented by files and folders.
+- Realtime local collaboration across browser sessions on the same machine or LAN.
+- Desktop and mobile shells tuned separately instead of one stretched layout.
+- Block editing with slash commands, todos, toggles, links, wiki links, file blocks, image blocks, and print-friendly rendering.
+- File and image drops into pages. Images render inline; PDFs and other files stay openable as vault attachments.
+- Local presence, page visit history, and a resizable desktop sidebar.
+- Attachments stored inside the selected vault so content remains inspectable.
+
+## Requirements
+
+- Node.js 22 or newer
+- npm 10 or newer
+
+## Configuration
+
+OpenWrite reads backend runtime configuration from environment variables and from a root `.env` file when it exists. The frontend dev server also reads the root `.env` file.
+
+Start from [.env.example](.env.example):
+
+```sh
+cp .env.example .env
+```
+
+The most common settings are:
+
+- `OPENWRITE_BACKEND_PORT`: backend API and WebSocket port.
+- `OPENWRITE_STATE_PATH`: local app-state file that remembers recent vaults.
+- `OPENWRITE_VAULT_PATH`: optional vault path to open automatically on startup.
+- `OPENWRITE_ALLOWED_HOSTS`: optional comma-separated hostnames accepted by Vite during LAN development.
+
+## Local Data
+
+The repo-level `data/` directory is ignored except for `data/.gitkeep`. It may contain local app state, Yjs cache files, and scratch vaults during development.
+
+Your selected vault is normal local content. Do not commit personal vaults, attachments, `.env` files, or generated cache files.
+
+## Architecture
+
+The short version:
+
+```text
+Browser PWA
+  -> React workspace shell
+  -> Tiptap/Yjs page editor
+  -> Vite proxy
+  -> Node Hocuspocus server
+  -> Markdown vault files + attachment files
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the ADRs in [docs/adr](docs/adr) for the project shape and persistence decisions.
+
+## Development
+
+```sh
+npm run check
+npm run test
+npm run build
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, checks, and pull request expectations.
+
+## Security
+
+OpenWrite is designed for trusted local networks. See [SECURITY.md](SECURITY.md) before exposing it beyond your own machine or LAN.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
