@@ -17,35 +17,41 @@ It gives you a Notion-ish editing surface on top of files you actually own: plai
 OpenWrite is designed to be installed and operated with an AI coding agent. Paste this into your agent:
 
 ```text
-Install and start OpenWrite from this repository.
+Install and start OpenWrite from GitHub:
+https://github.com/kabuika96/openwrite
 
 Goals:
 - Do not stop unrelated running apps or services.
+- Clone the repo from https://github.com/kabuika96/openwrite.git.
 - Install dependencies with npm.
 - Copy .env.example to .env if .env does not exist.
 - Start the app with npm run dev.
 - Confirm the backend health endpoint works.
-- Tell me the local URL and LAN URL if available.
+- Tell me the local URL, LAN URL, frontend port, and backend port.
 - Help me create or open a Markdown vault on first run.
 
 Useful commands:
+- git clone https://github.com/kabuika96/openwrite.git
+- cd openwrite
 - npm install
 - cp .env.example .env
 - npm run dev
 - curl -fsS http://127.0.0.1:8787/api/health
 ```
 
-That is the preferred path. The agent can handle ports, existing processes, logs, and first-run vault setup while you stay focused on the app.
+That is the preferred path. The agent can pull the repo, handle ports, preserve existing processes, read logs, share the right browser URL, and walk through first-run vault setup while you stay focused on the app.
 
 ### Manual Install
 
 ```sh
+git clone https://github.com/kabuika96/openwrite.git
+cd openwrite
 npm install
 cp .env.example .env
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`.
+Open `http://127.0.0.1:5173`. Vite will also print a LAN URL when one is available.
 
 The frontend proxies API requests and WebSockets to the backend at `http://127.0.0.1:8787`.
 
