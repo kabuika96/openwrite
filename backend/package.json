@@ -4,13 +4,14 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
-    "build": "node --check src/runtime-env.js && node --check src/editor-schema.js && node --check src/file-block-extension.js && node --check src/image-block-extension.js && node --check src/wiki-link-extension.js && node --check src/markdown-inline.js && node --check src/markdown-embeds.js && node --check src/markdown-lists.js && node --check src/markdown-details.js && node --check src/page-markdown.js && node --check src/page-file.js && node --check src/vault-paths.js && node --check src/vault-attachments.js && node --check src/vault-order.js && node --check src/vault-registry.js && node --check src/vault-store.js && node --check src/vault-lifecycle.js && node --check src/reconnect-duplicate.js && node --check src/yjs-cache-store.js && node --check src/page-doc-persistence.js && node --check src/http-utils.js && node --check src/multipart-upload.js && node --check src/system-reveal.js && node --check src/document-store.js && node --check src/sync-server.js && node --check src/server.js",
-    "lint": "npm run build",
-    "test": "node --test"
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "npm run typecheck",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@hocuspocus/server": "^4.0.0",
@@ -22,5 +23,10 @@
     "@tiptap/starter-kit": "^3.22.5",
     "@tiptap/y-tiptap": "^3.0.3",
     "yjs": "^13.6.27"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

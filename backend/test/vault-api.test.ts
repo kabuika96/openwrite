@@ -123,7 +123,7 @@ test("vault API uploads multiple attachments and serves them from the vault", as
 });
 
 async function get(context, pathname) {
-  const request = new EventEmitter();
+  const request: any = new EventEmitter();
   request.method = "GET";
   const response = createFakeResponse();
 
@@ -139,7 +139,7 @@ async function get(context, pathname) {
 }
 
 async function post(context, pathname, body) {
-  const request = new EventEmitter();
+  const request: any = new EventEmitter();
   request.method = "POST";
   const response = createFakeResponse();
 
@@ -160,7 +160,7 @@ async function post(context, pathname, body) {
 
 async function postMultipart(context, pathname, files) {
   const boundary = "openwrite-test-boundary";
-  const request = new EventEmitter();
+  const request: any = new EventEmitter();
   request.method = "POST";
   request.headers = {
     "content-type": `multipart/form-data; boundary=${boundary}`,
@@ -183,7 +183,7 @@ async function postMultipart(context, pathname, files) {
 }
 
 async function getFile(context, pathname) {
-  const request = new EventEmitter();
+  const request: any = new EventEmitter();
   request.method = "GET";
   const response = createFakeResponse();
 
@@ -204,7 +204,7 @@ function createInstance() {
   };
 }
 
-function createFakeResponse() {
+function createFakeResponse(): any {
   return {
     body: "",
     headers: {},

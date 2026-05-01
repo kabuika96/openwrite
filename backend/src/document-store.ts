@@ -9,7 +9,7 @@ import {
 } from "./vault-lifecycle.js";
 import { resolveYjsCachePath } from "./yjs-cache-store.js";
 
-export function createDocumentStore(options = {}) {
+export function createDocumentStore(options: Record<string, any> = {}) {
   const registry = options.registry ?? createVaultRegistry(options);
   const yjsCachePath = resolveYjsCachePath(options.yjsCachePath, registry.statePath);
   let vault = openInitialVault(options, registry);

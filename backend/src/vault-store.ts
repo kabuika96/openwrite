@@ -30,7 +30,24 @@ import { compareChildPageEntries, writeNormalizedChildPageOrder, writeReorderedC
 export { defaultPageIcon, parsePageFile } from "./page-file.js";
 export { resolveVaultPath } from "./vault-paths.js";
 
-export function createVaultStore(options = {}) {
+type PageNode = {
+  children: PageNode[];
+  icon: string;
+  id: string;
+  parentId: string | null;
+  title: string;
+};
+
+type ChildPageEntry = {
+  filePath: string;
+  order?: number | null;
+  parsed: ReturnType<typeof parsePageFile>;
+  title: string;
+};
+
+type VaultStoreOptions = Record<string, any>;
+
+export function createVaultStore(options: VaultStoreOptions = {}) {
   const vaultPath = resolveVaultPath(options.vaultPath ?? options.workspacePath ?? "./data/workspace");
   fs.mkdirSync(vaultPath, { recursive: true });
 
@@ -41,7 +58,7 @@ export function createVaultStore(options = {}) {
       return readChildren(vaultPath, null);
     },
 
-    createPage(input = {}) {
+    createPage(input: Record<string, any> = {}) {
       const title = normalizeTitle(input.title ?? "Untitled");
       const parentId = input.parentId ?? null;
       const directory = parentId ? childDirectoryForPageId(vaultPath, parentId) : vaultPath;
@@ -56,15 +73,17 @@ export function createVaultStore(options = {}) {
       return readPageByFilePath(vaultPath, filePath, parentId);
     },
 
-    readPageContent(pageId) {
+    readPageContent(pageId: string) {
       const filePath = filePathForPageId(vaultPath, pageId);
       if (!fs.existsSync(filePath)) return null;
       return parsePageFile(fs.readFileSync(filePath, "utf8")).content;
     },
 
-    writePageContent(pageId, content) {
+    writePageContent(pageId: string, content: string) {
       const filePath = filePathForPageId(vaultPath, pageId);
-      const current = fs.existsSync(filePath) ? parsePageFile(fs.readFileSync(filePath, "utf8")) : { frontmatter: null };
+      const current = fs.existsSync(filePath)
+        ? parsePageFile(fs.readFileSync(filePath, "utf8"))
+        : { frontmatter: null, content: "" };
       const normalizedContent = normalizeMarkdownContent(content);
       if (current.content === normalizedContent) {
         return readPageByFilePath(vaultPath, filePath, parentIdForPageId(vaultPath, pageId));
@@ -77,7 +96,7 @@ export function createVaultStore(options = {}) {
       return readPageByFilePath(vaultPath, filePath, parentIdForPageId(vaultPath, pageId));
     },
 
-    renamePage(pageId, title) {
+    renamePage(pageId: string, title: string) {
       const filePath = filePathForPageId(vaultPath, pageId);
       if (!fs.existsSync(filePath)) return null;
 
@@ -87,7 +106,7 @@ export function createVaultStore(options = {}) {
       return readPageByFilePath(vaultPath, nextFilePath, parentIdForFilePath(vaultPath, nextFilePath));
     },
 
-    setPageIcon(pageId, icon) {
+    setPageIcon(pageId: string, icon: string) {
       const filePath = filePathForPageId(vaultPath, pageId);
       if (!fs.existsSync(filePath)) return null;
 
@@ -99,15 +118,15 @@ export function createVaultStore(options = {}) {
       return readPageByFilePath(vaultPath, filePath, parentIdForPageId(vaultPath, pageId));
     },
 
-    saveAttachment(input = {}) {
+    saveAttachment(input: Record<string, any> = {}) {
       return saveVaultAttachment(vaultPath, input);
     },
 
-    readAttachment(relativePath) {
+    readAttachment(relativePath: string) {
       return readVaultAttachment(vaultPath, relativePath);
     },
 
-    movePage(pageId, input = {}) {
+    movePage(pageId: string, input: Record<string, any> = {}) {
       const filePath = filePathForPageId(vaultPath, pageId);
       if (!fs.existsSync(filePath)) return null;
       if (input.parentId === pageId) return null;
@@ -133,7 +152,7 @@ export function createVaultStore(options = {}) {
       return readPageByFilePath(vaultPath, nextFilePath, nextParentId);
     },
 
-    deletePage(pageId) {
+    deletePage(pageId: string) {
       const filePath = filePathForPageId(vaultPath, pageId);
       if (!fs.existsSync(filePath)) return false;
 
@@ -165,18 +184,23 @@ export function createVaultStore(options = {}) {
   return vault;
 }
 
-function readChildren(vaultPath, parentId) {
+function readChildren(vaultPath: string, parentId: string | null): PageNode[] {
   return listChildPageEntries(vaultPath, parentId).map((entry) =>
     readPageByParsedFile(vaultPath, entry.filePath, parentId, entry.parsed),
   );
 }
 
-function readPageByFilePath(vaultPath, filePath, parentId) {
+function readPageByFilePath(vaultPath: string, filePath: string, parentId: string | null): PageNode {
   const parsed = parsePageFile(fs.readFileSync(filePath, "utf8"));
   return readPageByParsedFile(vaultPath, filePath, parentId, parsed);
 }
 
-function readPageByParsedFile(vaultPath, filePath, parentId, parsed) {
+function readPageByParsedFile(
+  vaultPath: string,
+  filePath: string,
+  parentId: string | null,
+  parsed: ReturnType<typeof parsePageFile>,
+): PageNode {
   const id = pageIdFromFilePath(vaultPath, filePath);
 
   return {
@@ -188,7 +212,7 @@ function readPageByParsedFile(vaultPath, filePath, parentId, parsed) {
   };
 }
 
-function listChildPageEntries(vaultPath, parentId) {
+function listChildPageEntries(vaultPath: string, parentId: string | null): ChildPageEntry[] {
   const directory = parentId ? childDirectoryForPageId(vaultPath, parentId) : vaultPath;
   if (!fs.existsSync(directory)) return [];
 
@@ -208,6 +232,6 @@ function listChildPageEntries(vaultPath, parentId) {
     .sort(compareChildPageEntries);
 }
 
-function countPageNodes(nodes) {
+function countPageNodes(nodes: PageNode[]): number {
   return nodes.reduce((count, node) => count + 1 + countPageNodes(node.children), 0);
 }

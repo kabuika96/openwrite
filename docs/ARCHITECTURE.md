@@ -24,12 +24,12 @@ Browser PWA
 
 ## Backend
 
-- `backend/src/server.js` loads runtime configuration and starts the sync/API server.
-- `backend/src/sync-server.js` wires Hocuspocus document hooks and HTTP API routing.
-- `backend/src/document-store.js` bridges active Yjs documents to vault-backed persistence.
-- `backend/src/page-doc-persistence.js` handles page-doc load/save behavior and reconnect duplicate protection.
-- `backend/src/vault-*.js` modules own vault lifecycle, paths, page ordering, page mutations, attachments, and active-vault registry state.
-- `backend/src/page-markdown.js` and `backend/src/markdown-*.js` convert between Tiptap JSON and Markdown page files.
+- `backend/src/server.ts` loads runtime configuration and starts the sync/API server.
+- `backend/src/sync-server.ts` wires Hocuspocus document hooks and HTTP API routing.
+- `backend/src/document-store.ts` bridges active Yjs documents to vault-backed persistence.
+- `backend/src/page-doc-persistence.ts` handles page-doc load/save behavior and reconnect duplicate protection.
+- `backend/src/vault-*.ts` modules own vault lifecycle, paths, page ordering, page mutations, attachments, and active-vault registry state.
+- `backend/src/page-markdown.ts` and `backend/src/markdown-*.ts` convert between Tiptap JSON and Markdown page files.
 
 ## Key Flows
 

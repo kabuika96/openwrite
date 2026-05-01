@@ -1,10 +1,30 @@
 import { Server } from "@hocuspocus/server";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { decodePathSegments, readJsonBody, requiredString, sendFile, sendJson } from "./http-utils.js";
 import { readMultipartFiles } from "./multipart-upload.js";
 import { createPageYDocFromMarkdown } from "./page-markdown.js";
 
-export function createSyncServer(store, options = {}) {
-  const port = Number.parseInt(options.port ?? process.env.OPENWRITE_BACKEND_PORT ?? "8787", 10);
+type SyncServerOptions = {
+  address?: string;
+  debounce?: number;
+  maxDebounce?: number;
+  port?: number | string;
+  quiet?: boolean;
+};
+
+type RouteContext = {
+  instance: {
+    getConnectionsCount: () => number;
+    getDocumentsCount: () => number;
+  };
+  request: IncomingMessage;
+  response: ServerResponse;
+  store: any;
+  url: URL;
+};
+
+export function createSyncServer(store: any, options: SyncServerOptions = {}) {
+  const port = Number.parseInt(String(options.port ?? process.env.OPENWRITE_BACKEND_PORT ?? "8787"), 10);
   const address = options.address ?? process.env.OPENWRITE_BACKEND_HOST ?? "0.0.0.0";
   const quiet = options.quiet ?? false;
 
@@ -28,7 +48,7 @@ export function createSyncServer(store, options = {}) {
     },
 
     onRequest({ request, response, instance }) {
-      return new Promise((resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         const url = new URL(request.url ?? "/", "http://openwrite.local");
         if (!url.pathname.startsWith("/api/")) {
           resolve();
@@ -36,7 +56,7 @@ export function createSyncServer(store, options = {}) {
         }
 
         routeApiRequest({ request, response, instance, store, url })
-          .catch((error) => {
+          .catch((error: any) => {
             sendJson(response, error.statusCode ?? 500, { error: error.message ?? "Request failed" });
           })
           .finally(() => reject());
@@ -45,7 +65,7 @@ export function createSyncServer(store, options = {}) {
   });
 }
 
-export async function routeApiRequest({ request, response, instance, store, url }) {
+export async function routeApiRequest({ request, response, instance, store, url }: RouteContext) {
   if (request.method === "GET" && url.pathname === "/api/health") {
     sendJson(response, 200, {
       ok: true,
@@ -183,7 +203,7 @@ export async function routeApiRequest({ request, response, instance, store, url 
   sendJson(response, 404, { error: "Not found" });
 }
 
-function sendVaultState(response, store, extra = {}) {
+function sendVaultState(response: ServerResponse, store: any, extra: Record<string, any> = {}) {
   if (!store.hasVault()) {
     sendJson(response, 200, {
       ...extra,
@@ -202,7 +222,7 @@ function sendVaultState(response, store, extra = {}) {
   });
 }
 
-function requireVault(store) {
+function requireVault(store: any) {
   if (!store.hasVault()) {
     throw Object.assign(new Error("Choose or create a vault first"), { statusCode: 409 });
   }
