@@ -1,0 +1,47 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: Build macOS desktop release
+    runs-on: macos-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate release version
+        run: npm run check:release
+
+      - name: Run project checks
+        run: npm run check
+
+      - name: Build and publish desktop release
+        run: npm run release:desktop
+
+      - name: Write desktop checksums
+        run: |
+          cd desktop/release
+          shasum -a 256 OpenWrite-*.dmg OpenWrite-*.zip > SHASUMS256.txt
+
+      - name: Upload desktop checksums
+        run: gh release upload "$GITHUB_REF_NAME" desktop/release/SHASUMS256.txt --repo "$GITHUB_REPOSITORY" --clobber

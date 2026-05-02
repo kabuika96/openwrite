@@ -55,6 +55,24 @@ Open `http://127.0.0.1:5173`. Vite will also print a LAN URL when one is availab
 
 The frontend proxies API requests and WebSockets to the backend at `http://127.0.0.1:8787`.
 
+### Desktop App Shell
+
+OpenWrite also has an early Electron desktop shell. It does not start the server; it replaces opening the LAN-hosted frontend in a browser.
+
+```sh
+npm run dev --workspace desktop
+```
+
+On first launch, enter the OpenWrite frontend URL from the server machine, such as `http://10.0.0.158:5173`.
+
+Unsigned desktop packages can be built with:
+
+```sh
+npm run package:desktop
+```
+
+Desktop releases are unsigned developer builds published from version tags. The DMG is the primary download, and desktop wrapper updates are manual. See [docs/DESKTOP_RELEASE.md](docs/DESKTOP_RELEASE.md).
+
 ## Why I Built OpenWrite
 
 A few weeks ago, I had OpenClaw and Hermes running 24/7 on a spare MacBook.
@@ -144,6 +162,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the ADRs in [docs/adr](docs
 npm run check
 npm run test
 npm run build
+npm run package:desktop
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, checks, and pull request expectations.

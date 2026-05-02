@@ -1,0 +1,40 @@
+appId: io.github.kabuika96.openwrite
+productName: OpenWrite
+copyright: Copyright © 2026 OpenWrite contributors
+artifactName: OpenWrite-${version}-${arch}.${ext}
+electronVersion: 41.4.0
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - dist/**/*
+  - src/renderer/**/*
+  - package.json
+
+asar: true
+compression: normal
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
+
+dmg:
+  artifactName: OpenWrite-${version}-universal.${ext}
+
+publish:
+  provider: github
+  owner: kabuika96
+  repo: openwrite
+  releaseType: release
+  publishAutoUpdate: false

@@ -19,6 +19,13 @@ rg -n --hidden -g '!node_modules/**' -g '!package-lock.json' -g '!data/**' -g '!
 npm run check
 ```
 
+- For desktop releases, also review [DESKTOP_RELEASE.md](DESKTOP_RELEASE.md) and run:
+
+```sh
+npm run check:release
+npm run package:desktop
+```
+
 - Inspect the final file set:
 
 ```sh
