@@ -35,13 +35,30 @@ jobs:
       - name: Run project checks
         run: npm run check
 
-      - name: Build and publish desktop release
-        run: npm run release:desktop
+      - name: Build desktop artifacts
+        run: npm run package:desktop
 
       - name: Write desktop checksums
         run: |
           cd desktop/release
           shasum -a 256 OpenWrite-*.dmg OpenWrite-*.zip > SHASUMS256.txt
 
-      - name: Upload desktop checksums
-        run: gh release upload "$GITHUB_REF_NAME" desktop/release/SHASUMS256.txt --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Publish desktop release
+        run: |
+          notes="Unsigned macOS desktop wrapper build. Use the DMG first; see docs/DESKTOP_RELEASE.md for install and update details."
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              desktop/release/OpenWrite-*.dmg \
+              desktop/release/OpenWrite-*.zip \
+              desktop/release/SHASUMS256.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              desktop/release/OpenWrite-*.dmg \
+              desktop/release/OpenWrite-*.zip \
+              desktop/release/SHASUMS256.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "${GITHUB_REF_NAME#v}" \
+              --notes "$notes"
+          fi
