@@ -37,4 +37,4 @@ publish:
   owner: kabuika96
   repo: openwrite
   releaseType: release
-  publishAutoUpdate: true
+  publishAutoUpdate: false

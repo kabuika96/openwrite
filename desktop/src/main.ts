@@ -30,7 +30,6 @@ app.whenReady().then(async () => {
     await loadConnectionScreen();
   }
 
-  desktopUpdater.checkOnStartup();
 });
 
 app.on("activate", async () => {
@@ -118,7 +117,7 @@ function installAppMenu() {
         submenu: [
           { role: "about" as const },
           {
-            label: "Check for Updates...",
+            label: "Check for Desktop Updates...",
             async click() {
               await desktopUpdater.checkManually();
             },
@@ -159,7 +158,7 @@ function installAppMenu() {
         label: "Help",
         submenu: [
           {
-            label: "Check for Updates...",
+            label: "Check for Desktop Updates...",
             async click() {
               await desktopUpdater.checkManually();
             },

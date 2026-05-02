@@ -28,7 +28,7 @@ Browser PWA or Electron desktop app shell
 - The shell does not start or bundle the backend. It connects to an existing OpenWrite local server on the trusted LAN.
 - On first launch, it shows a local connection screen, validates `<server-url>/api/health`, remembers the server URL in app-local user data, and then loads the shared desktop frontend with `openwrite_shell=desktop`.
 - The renderer is locked down with Node integration disabled and context isolation enabled. OpenWrite same-origin navigation stays in the app, while external web links open in the user's default browser.
-- Desktop packaging uses electron-builder, and desktop auto-update uses electron-updater against published stable GitHub Releases.
+- Desktop packaging uses electron-builder. Current desktop releases are unsigned GitHub Release artifacts with manual DMG updates; most UX changes ship through the LAN-hosted server/frontend.
 
 ## Backend
 

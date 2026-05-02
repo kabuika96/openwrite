@@ -8,10 +8,10 @@ It does not start or bundle the OpenWrite backend.
 npm run dev --workspace desktop
 ```
 
-Unsigned local packaging:
+Unsigned packaging:
 
 ```sh
 npm run package --workspace desktop
 ```
 
-Public releases use electron-builder, electron-updater, GitHub Releases, Developer ID signing, and Apple notarization. See [../docs/DESKTOP_RELEASE.md](../docs/DESKTOP_RELEASE.md).
+Public releases use electron-builder and GitHub Releases. They are unsigned developer builds for now, with manual DMG updates. See [../docs/DESKTOP_RELEASE.md](../docs/DESKTOP_RELEASE.md).

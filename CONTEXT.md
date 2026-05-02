@@ -28,17 +28,17 @@ OpenWrite is a local-first, realtime Markdown-native note app for computer and m
 - Desktop shell first slice: a dev-runnable Electron shell that validates and remembers a server URL, loads the shared desktop frontend, and defers LAN discovery.
 - Connection screen: a local desktop app shell screen shown before a server connection is remembered; it validates the server URL before the shell loads the remote OpenWrite frontend.
 - Desktop renderer policy: remote OpenWrite frontend content runs without Node integration, with context isolation enabled, and without broad desktop filesystem access.
-- Desktop release: a GitHub Release artifact for the desktop app shell; the first target is a Developer ID signed and notarized macOS build distributed outside the Mac App Store.
-- Desktop auto-update: a v1 release requirement because OpenWrite is open source, expected to move quickly, and aimed at developer users.
-- Desktop packaging stack: electron-builder and electron-updater produce signed/notarized release artifacts and update metadata from the desktop app package.
-- Desktop update flow: the desktop app checks for updates quietly, downloads available updates in the background, and asks the user before restarting to install.
-- Desktop release pipeline: version-tagged GitHub Actions runs build signed/notarized desktop artifacts, attach them to GitHub Releases, and provide the updater feed.
+- Desktop release: a GitHub Release artifact for the desktop app shell; the first target is an unsigned universal macOS build distributed outside the Mac App Store.
+- Desktop manual update: the current free release path where users download a newer DMG from GitHub Releases and replace `OpenWrite.app` in `/Applications`.
+- Desktop packaging stack: electron-builder produces unsigned desktop release artifacts from the desktop app package.
+- Desktop update flow: most UX updates come from updating the LAN-hosted server/frontend; desktop wrapper updates are occasional manual DMG installs.
+- Desktop release pipeline: version-tagged GitHub Actions builds unsigned desktop artifacts, attaches them to GitHub Releases, and uploads checksums.
 - Product version: root and desktop package versions stay aligned, and version tags represent one OpenWrite product release.
 - Release publishing: version-tagged desktop releases are published automatically rather than held as drafts, so fixes roll forward through newer versions.
 - macOS release architecture: the first desktop release target is a universal macOS build for both Apple Silicon and Intel Macs.
-- Update channel: desktop auto-update follows published stable GitHub Releases only; prerelease channels are deferred.
-- Desktop update UI: update checks and restart prompts live in native desktop menus/dialogs, not in the React frontend or Markdown vault.
-- Desktop signing policy: unsigned local/dev packaging is allowed for contributors, while public tag releases must be Developer ID signed and notarized.
+- Update channel: desktop wrapper releases are published as stable GitHub Releases; automatic update channels are deferred until signed releases exist.
+- Desktop update UI: the native desktop menu points users to GitHub Releases for manual wrapper updates.
+- Desktop signing policy: current desktop releases are unsigned developer builds; Developer ID signing, notarization, and auto-update are deferred because they require the paid Apple Developer Program.
 
 ## Product Principles
 

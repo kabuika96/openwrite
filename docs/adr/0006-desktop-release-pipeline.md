@@ -6,14 +6,18 @@ Accepted
 
 ## Context
 
-The desktop app shell needs to move quickly for developer users while still avoiding macOS Gatekeeper warnings. OpenWrite is distributed as open source through GitHub, not through the Mac App Store.
+The desktop app shell needs to move quickly for developer users. OpenWrite is distributed as open source through GitHub, not through the Mac App Store.
+
+Apple's Developer ID signing and notarization path requires the paid Apple Developer Program. The project is not taking that dependency for the first desktop releases. Most OpenWrite UX changes ship through the LAN-hosted server/frontend, so the desktop app wrapper should remain comparatively stable and update less often.
 
 ## Decision
 
-Use electron-builder and electron-updater for the desktop packaging and update stack. Version-tagged GitHub Actions releases auto-publish universal macOS artifacts to GitHub Releases, including the update metadata needed for stable-channel auto-updates. Public tag releases must be Developer ID signed and notarized, while unsigned local packaging remains available for contributor development.
+Use electron-builder for desktop packaging. Version-tagged GitHub Actions releases auto-publish unsigned universal macOS artifacts to GitHub Releases and upload a checksum file. The DMG is the primary download, with ZIP as a fallback.
 
-The app checks for updates quietly, downloads available updates in the background, and asks before restarting to install. Update checks and prompts belong to the native desktop shell, not the React frontend or the Markdown vault.
+Desktop app updates are manual. The native desktop shell can point users to GitHub Releases, but it must not claim signed/notarized installation or macOS auto-update support while the app is unsigned.
+
+Developer ID signing, notarization, and electron-updater can be added later if the project chooses the paid Apple Developer Program path.
 
 ## Consequences
 
-Release tags ship immediately, so bad releases roll forward through newer versions rather than being held behind draft review. The release pipeline requires Apple signing and notarization secrets in CI before public desktop releases can be produced.
+Release tags ship immediately, so bad releases roll forward through newer versions rather than being held behind draft review. macOS users will see Gatekeeper friction until signed/notarized releases are added.

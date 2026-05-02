@@ -65,13 +65,13 @@ npm run dev --workspace desktop
 
 On first launch, enter the OpenWrite frontend URL from the server machine, such as `http://10.0.0.158:5173`.
 
-Unsigned local desktop packages can be built with:
+Unsigned desktop packages can be built with:
 
 ```sh
 npm run package:desktop
 ```
 
-Signed, notarized desktop releases are published from version tags. See [docs/DESKTOP_RELEASE.md](docs/DESKTOP_RELEASE.md).
+Desktop releases are unsigned developer builds published from version tags. The DMG is the primary download, and desktop wrapper updates are manual. See [docs/DESKTOP_RELEASE.md](docs/DESKTOP_RELEASE.md).
 
 ## Why I Built OpenWrite
 
