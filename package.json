@@ -1,7 +1,7 @@
 {
   "name": "openwrite",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "open-source, LAN-hosted, Markdown-native note app",
   "packageManager": "npm@11.11.0",
