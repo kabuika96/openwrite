@@ -110,7 +110,7 @@ The goal is simple:
 
 - files you own
 - real Markdown editing
-- PDF and image viewing
+- Media viewing
 - browser/PWA access from LAN devices
 - no cloud account
 - no vendor lock-in
@@ -118,21 +118,9 @@ The goal is simple:
 - friendly to Obsidian-style vaults
 - useful for both humans and agents
 
-Markdown is the home base. Files stay portable. The app stays boring where it should be boring, and hackable where it should be hackable.
-
-Bring your notes. Bring your agents. Bring your spare computer running in the corner.
+Markdown is the home base. Files stay portable. The system stays boring where it should be boring, and hackable where it should be hackable.
 
 PRs welcome.
-
-## What You Get
-
-- Obsidian-style Markdown vaults with nested pages represented by files and folders.
-- Realtime local collaboration across browser sessions on the same machine or LAN.
-- Desktop and mobile shells tuned separately instead of one stretched layout.
-- Block editing with slash commands, todos, toggles, links, wiki links, file blocks, image blocks, and print-friendly rendering.
-- File and image drops into pages. Images render inline; PDFs and other files stay openable as vault attachments.
-- Local presence, page visit history, and a resizable desktop sidebar.
-- Attachments stored inside the selected vault so content remains inspectable.
 
 ## Requirements
 
