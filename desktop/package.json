@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "clean:release": "node scripts/clean-release.mjs",
     "package": "npm run clean:release && npm run build && electron-builder --publish never -c.mac.identity=null -c.mac.notarize=false",
-    "release": "npm run clean:release && npm run build && electron-builder --publish always -c.mac.identity=null -c.mac.notarize=false",
+    "release": "npm run package",
     "lint": "npm run typecheck",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit"
