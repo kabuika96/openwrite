@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { createAppMenuTemplate } from "./app-menu.js";
 import { isExternalWebUrl, isSameOriginUrl, toShellUrl } from "./connection-policy.js";
 import { validateOpenWriteServer } from "./health.js";
 import { ServerConfigStore } from "./server-config.js";
@@ -110,62 +111,26 @@ function openExternalUrl(url: string) {
 }
 
 function installAppMenu() {
-  const template: Electron.MenuItemConstructorOptions[] = [
-    ...(process.platform === "darwin"
-      ? [{
-        label: app.name,
-        submenu: [
-          { role: "about" as const },
-          {
-            label: "Check for Desktop Updates...",
-            async click() {
-              await desktopUpdater.checkManually();
-            },
-          },
-          { type: "separator" as const },
-          { role: "quit" as const },
-        ],
-      }]
-      : []),
-    {
-      label: "File",
-      submenu: [
-        {
-          label: "Change Server",
-          async click() {
-            await configStore.clear();
-            await loadConnectionScreen();
-          },
-        },
-        { type: "separator" },
-        { role: process.platform === "darwin" ? "close" : "quit" },
-      ],
+  const template = createAppMenuTemplate({
+    appName: app.name,
+    async changeServer() {
+      await configStore.clear();
+      await loadConnectionScreen();
     },
-    {
-      label: "View",
-      submenu: [
-        { role: "reload" },
-        { role: "toggleDevTools" },
-        { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
-      ],
+    async checkForUpdates() {
+      await desktopUpdater.checkManually();
     },
-    ...(process.platform === "darwin"
-      ? []
-      : [{
-        label: "Help",
-        submenu: [
-          {
-            label: "Check for Desktop Updates...",
-            async click() {
-              await desktopUpdater.checkManually();
-            },
-          },
-        ],
-      }]),
-  ];
+    print() {
+      printFocusedWindow();
+    },
+  });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function printFocusedWindow() {
+  const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  if (!window || window.isDestroyed()) return;
+
+  window.webContents.print();
 }
