@@ -24,29 +24,30 @@ Most updates happen by pulling a newer OpenWrite server version. The Mac app is 
 OpenWrite is designed to be installed and operated with an AI coding agent. Start by asking your agent to install and run the server:
 
 ```text
-Install and start OpenWrite from GitHub:
+Install and start the OpenWrite server from GitHub:
 https://github.com/kabuika96/openwrite
 
-Goals:
-- Do not stop unrelated running apps or services.
-- Clone the repo from https://github.com/kabuika96/openwrite.git.
+Please handle the setup end to end:
+- Use Node.js 22.12+ and npm 10+.
+- Clone https://github.com/kabuika96/openwrite.git, or update the existing clone if it is already present.
+- Preserve existing vaults, data, and .env files. Copy .env.example to .env only if .env does not exist.
 - Install dependencies with npm.
-- Copy .env.example to .env if .env does not exist.
-- Start the app with npm run dev.
-- Confirm the backend health endpoint works.
-- Tell me the local URL, LAN URL, frontend port, and backend port.
+- Start the server with npm run dev.
+- Do not stop unrelated apps or services. If the default ports are busy, choose free ports with .env settings and tell me what changed.
+- Verify that the backend health endpoint works and that the frontend loads.
+- Tell me the local URL, LAN URL, frontend port, backend port, and vault path.
 - Help me create or open a Markdown vault on first run.
+- After the server is running, help me connect my devices: Mac via the GitHub Releases DMG, iPhone/iPad via Safari Add to Home Screen.
 
-Useful commands:
+Useful defaults:
 - git clone https://github.com/kabuika96/openwrite.git
 - cd openwrite
 - npm install
 - cp .env.example .env
 - npm run dev
-- curl -fsS http://127.0.0.1:8787/api/health
 ```
 
-That is the preferred path. The agent can pull the repo, handle ports, preserve existing processes, read logs, share the right browser URL, and walk through first-run vault setup while you stay focused on the app.
+That is the preferred path. The agent can pull the repo, handle ports without killing unrelated processes, preserve existing local files, read logs, share the right browser URL, and walk through first-run vault setup while you stay focused on the app.
 
 ### Manual Server Install
 
