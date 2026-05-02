@@ -12,9 +12,16 @@ It gives you a Notion-ish editing surface on top of files you actually own: plai
 
 ## Install
 
+OpenWrite has two pieces:
+
+1. **The OpenWrite server** runs on one computer on your LAN. This is where the repo, backend, browser frontend, and Markdown vault live.
+2. **The apps on your devices** connect to that server. On a Mac, use the DMG from GitHub Releases. On iPhone, save the LAN URL to your Home Screen as a PWA.
+
+Most updates happen by pulling a newer OpenWrite server version. The Mac app is a thin wrapper around the LAN-hosted frontend, so it should only need occasional updates.
+
 ### Give This To Your Agent
 
-OpenWrite is designed to be installed and operated with an AI coding agent. Paste this into your agent:
+OpenWrite is designed to be installed and operated with an AI coding agent. Start by asking your agent to install and run the server:
 
 ```text
 Install and start OpenWrite from GitHub:
@@ -41,7 +48,7 @@ Useful commands:
 
 That is the preferred path. The agent can pull the repo, handle ports, preserve existing processes, read logs, share the right browser URL, and walk through first-run vault setup while you stay focused on the app.
 
-### Manual Install
+### Manual Server Install
 
 ```sh
 git clone https://github.com/kabuika96/openwrite.git
@@ -55,23 +62,37 @@ Open `http://127.0.0.1:5173`. Vite will also print a LAN URL when one is availab
 
 The frontend proxies API requests and WebSockets to the backend at `http://127.0.0.1:8787`.
 
-### Desktop App Shell
+### Install The App On Your Devices
 
-OpenWrite also has an early Electron desktop shell. It does not start the server; it replaces opening the LAN-hosted frontend in a browser.
+After the server is running, connect your devices to the LAN URL your agent or terminal prints, for example `http://10.0.0.158:5173`.
+
+On Mac:
+
+1. Download the latest `OpenWrite-*-universal.dmg` from [GitHub Releases](https://github.com/kabuika96/openwrite/releases).
+2. Open the DMG.
+3. Drag `OpenWrite.app` into `/Applications`.
+4. Launch OpenWrite and enter your server's LAN URL.
+
+On iPhone or iPad:
+
+1. Open the LAN URL in Safari.
+2. Tap Share.
+3. Tap Add to Home Screen.
+4. Launch OpenWrite from the Home Screen icon.
+
+The Mac app does not start the server; it replaces opening the LAN-hosted frontend in a browser. Desktop releases are unsigned developer builds, and desktop wrapper updates are manual. See [docs/DESKTOP_RELEASE.md](docs/DESKTOP_RELEASE.md).
+
+For desktop app development:
 
 ```sh
 npm run dev --workspace desktop
 ```
-
-On first launch, enter the OpenWrite frontend URL from the server machine, such as `http://10.0.0.158:5173`.
 
 Unsigned desktop packages can be built with:
 
 ```sh
 npm run package:desktop
 ```
-
-Desktop releases are unsigned developer builds published from version tags. The DMG is the primary download, and desktop wrapper updates are manual. See [docs/DESKTOP_RELEASE.md](docs/DESKTOP_RELEASE.md).
 
 ## Why I Built OpenWrite
 
