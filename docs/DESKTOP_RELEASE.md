@@ -41,7 +41,7 @@ For notarization, use either Apple ID credentials:
 - `APPLE_APP_SPECIFIC_PASSWORD`
 - `APPLE_TEAM_ID`
 
-Or App Store Connect API key credentials:
+Or App Store Connect API key credentials. Use a Team API key; individual API keys do not work with Apple's notarization tooling.
 
 - `APPLE_API_KEY_BASE64`: base64-encoded `.p8` API key.
 - `APPLE_API_KEY_ID`
@@ -55,6 +55,52 @@ node scripts/assert-desktop-release-secrets.mjs
 ```
 
 The secret validator only checks that the required environment variables are present. Apple validates the actual certificate and notarization credentials during the release workflow.
+
+## Creating Release Credentials
+
+Release credentials are maintainer-only. Do not commit the generated files below.
+
+Create a private key and certificate signing request from the repo root:
+
+```sh
+mkdir -p .scratch/release-secrets
+chmod 700 .scratch/release-secrets
+openssl genrsa -out .scratch/release-secrets/openwrite-developer-id.key 2048
+openssl req -new \
+  -key .scratch/release-secrets/openwrite-developer-id.key \
+  -out .scratch/release-secrets/openwrite-developer-id.certSigningRequest \
+  -subj /CN=OpenWriteDeveloperID/C=US
+```
+
+In Apple Developer, create a `Developer ID Application` certificate with that CSR and download the `.cer` file. Keep the `.key` file local; only upload the `.certSigningRequest` file to Apple.
+
+Package the downloaded certificate into a password-protected `.p12`:
+
+```sh
+openssl rand -base64 -out .scratch/release-secrets/macos-csc-password.txt 32
+openssl x509 -inform DER \
+  -in .scratch/release-secrets/developerID_application.cer \
+  -out .scratch/release-secrets/developerID_application.pem
+openssl pkcs12 -export \
+  -inkey .scratch/release-secrets/openwrite-developer-id.key \
+  -in .scratch/release-secrets/developerID_application.pem \
+  -out .scratch/release-secrets/openwrite-developer-id.p12 \
+  -passout file:.scratch/release-secrets/macos-csc-password.txt
+```
+
+Create a Team API key in App Store Connect under `Users and Access` -> `Integrations` -> `App Store Connect API`, then download the `.p8` key once.
+
+Set the GitHub Actions secrets:
+
+```sh
+base64 -i .scratch/release-secrets/openwrite-developer-id.p12 | gh secret set MACOS_CSC_LINK --repo kabuika96/openwrite
+gh secret set MACOS_CSC_KEY_PASSWORD --repo kabuika96/openwrite < .scratch/release-secrets/macos-csc-password.txt
+base64 -i .scratch/release-secrets/AuthKey_EXAMPLE.p8 | gh secret set APPLE_API_KEY_BASE64 --repo kabuika96/openwrite
+gh secret set APPLE_API_KEY_ID --repo kabuika96/openwrite
+gh secret set APPLE_API_ISSUER --repo kabuika96/openwrite
+```
+
+Replace `AuthKey_EXAMPLE.p8` with the downloaded App Store Connect key filename. The last two commands prompt for values without echoing them into shell history.
 
 ## Publishing
 
