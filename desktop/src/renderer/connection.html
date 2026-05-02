@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
+    />
+    <title>Connect to OpenWrite</title>
+    <link rel="stylesheet" href="./connection.css" />
+  </head>
+  <body>
+    <main class="connect-shell">
+      <section class="connect-panel" aria-labelledby="connect-title">
+        <div class="logo" aria-hidden="true">🦉</div>
+        <h1 id="connect-title">Connect to OpenWrite</h1>
+        <p class="lede">Enter the OpenWrite server URL from your trusted local network.</p>
+
+        <form id="connect-form">
+          <label for="server-url">Server URL</label>
+          <div class="field-row">
+            <input
+              id="server-url"
+              name="server-url"
+              type="text"
+              inputmode="url"
+              autocomplete="url"
+              spellcheck="false"
+              placeholder="http://10.0.0.158:5173"
+              required
+            />
+            <button type="submit">Connect</button>
+          </div>
+        </form>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <script src="./connection.js"></script>
+  </body>
+</html>

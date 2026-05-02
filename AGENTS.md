@@ -4,6 +4,7 @@
 
 - `frontend/`: React, Vite, TypeScript PWA.
 - `backend/`: Node API and Markdown/file-backed persistence.
+- `desktop/`: Electron desktop app shell that connects to an existing OpenWrite LAN server.
 - `data/`: local runtime files, ignored by git except `.gitkeep`.
 - `docs/adr/`: architectural decisions.
 - `.scratch/issues/`: local markdown issue tracker.

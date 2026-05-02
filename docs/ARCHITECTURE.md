@@ -5,7 +5,7 @@ OpenWrite is a local-first PWA with a React frontend and a Node backend. The dur
 ## System Shape
 
 ```text
-Browser PWA
+Browser PWA or Electron desktop app shell
   -> React app shell
   -> Tiptap editor + Yjs page docs
   -> Vite dev proxy
@@ -21,6 +21,14 @@ Browser PWA
 - `frontend/src/editor/` owns the Tiptap editor surface, slash commands, wiki links, link editing, file/image blocks, clipboard handling, and manual save shortcuts.
 - `frontend/src/sync/` owns Hocuspocus provider setup and page-tree/page-doc sync helpers.
 - `frontend/src/styles/` contains design tokens and print-specific CSS, while `frontend/src/styles.css` contains the app-wide UI rules.
+
+## Desktop App Shell
+
+- `desktop/` owns the Electron shell for users who want the desktop frontend experience outside a browser.
+- The shell does not start or bundle the backend. It connects to an existing OpenWrite local server on the trusted LAN.
+- On first launch, it shows a local connection screen, validates `<server-url>/api/health`, remembers the server URL in app-local user data, and then loads the shared desktop frontend with `openwrite_shell=desktop`.
+- The renderer is locked down with Node integration disabled and context isolation enabled. OpenWrite same-origin navigation stays in the app, while external web links open in the user's default browser.
+- Desktop packaging uses electron-builder, and desktop auto-update uses electron-updater against published stable GitHub Releases.
 
 ## Backend
 
@@ -59,3 +67,4 @@ The ADRs in `docs/adr/` capture the main project decisions:
 - Realtime CRDT editor.
 - Markdown page files.
 - Vault-first architecture.
+- Electron desktop app shell.

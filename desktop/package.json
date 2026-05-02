@@ -1,0 +1,29 @@
+{
+  "name": "@openwrite/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Electron desktop shell for OpenWrite",
+  "license": "MIT",
+  "author": "OpenWrite contributors",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "npm run build && electron .",
+    "build": "tsc -p tsconfig.json",
+    "package": "npm run build && electron-builder --publish never -c.mac.identity=null -c.mac.notarize=false",
+    "release": "npm run build && electron-builder --publish always",
+    "lint": "npm run typecheck",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "electron": "41.4.0",
+    "electron-builder": "^26.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3"
+  }
+}

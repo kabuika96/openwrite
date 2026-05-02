@@ -11,12 +11,16 @@
   },
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "desktop"
   ],
   "scripts": {
     "dev": "concurrently -n backend,frontend -c green,cyan \"npm run dev --workspace backend\" \"npm run dev --workspace frontend\"",
-    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend && npm run build --workspace desktop",
     "check": "npm run lint && npm run test && npm run build",
+    "check:release": "node scripts/assert-release-version.mjs",
+    "package:desktop": "npm run package --workspace desktop",
+    "release:desktop": "npm run release --workspace desktop",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
