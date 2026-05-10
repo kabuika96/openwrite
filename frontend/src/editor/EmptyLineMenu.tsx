@@ -3,6 +3,7 @@ import type { EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { FloatingMenu } from "@tiptap/react/menus";
 import { dispatchFileSelectionRequest } from "./slashCommands";
+import { insertOpenWriteTable } from "./TableBlock";
 
 type EmptyLineMenuVisibilityProps = {
   editor: Editor;
@@ -39,6 +40,13 @@ export const emptyLineMenuActions: EmptyLineMenuAction[] = [
     title: "Todo list",
     isActive: (editor) => editor.isActive("taskList") || editor.isActive("taskItem"),
     run: (editor) => editor.chain().focus().toggleTaskList().run(),
+  },
+  {
+    id: "table",
+    label: "Table",
+    title: "Table",
+    isActive: (editor) => editor.isActive("table"),
+    run: (editor) => insertOpenWriteTable(editor),
   },
   {
     id: "file",

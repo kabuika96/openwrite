@@ -14,10 +14,10 @@ import type { LocalUser } from "../types";
 import { useHocuspocusRoom } from "../sync/useHocuspocusRoom";
 import { EmptyLineMenu } from "./EmptyLineMenu";
 import { PresenceBar } from "./PresenceBar";
+import { TableBlockControls } from "./TableBlock";
 import { createOpenWriteEditorExtensions } from "./editorExtensions";
 import { handleLinkShortcut } from "./linkShortcut";
 import { handleManualSaveShortcut } from "./manualSaveShortcut";
-import { insertSlashTrigger } from "./slashCommands";
 import type { SlashMenuState } from "./slashCommandExtension";
 import { getActiveEditor, setActiveEditor } from "./activeEditor";
 import { InlinePageIdentity } from "./InlinePageIdentity";
@@ -370,6 +370,7 @@ function CollaborativeEditor({
   return (
     <section className="editor-shell">
       <div className="editor-stage" onScroll={closeTextContextMenu}>
+        <TableBlockControls editor={editor} pages={pages} />
         <header className="editor-header">
           <div className="editor-title-area">
             <InlinePageIdentity icon={pageIcon} title={pageTitle} onRenamePage={onRenamePage} onSetPageIcon={onSetPageIcon} />
@@ -542,20 +543,5 @@ function CollaborativeEditor({
         ) : null}
       </div>
     </section>
-  );
-}
-
-export function MobileInsertBlockButton() {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        const editor = getActiveEditor();
-        if (editor) insertSlashTrigger(editor);
-      }}
-    >
-      <span aria-hidden="true">+</span>
-      <span>Insert</span>
-    </button>
   );
 }

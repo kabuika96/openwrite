@@ -29,7 +29,6 @@
   }
 
   .desktop-workspace,
-  .mobile-workspace,
   .editor-shell,
   .editor-stage {
     display: block;
@@ -41,9 +40,6 @@
 
   .desktop-sidebar,
   .desktop-sidebar-resizer,
-  .mobile-topbar,
-  .mobile-bottom-bar,
-  .mobile-pages,
   .editor-header-actions,
   .page-icon-control,
   .page-title-input,
@@ -57,8 +53,7 @@
     display: none !important;
   }
 
-  .editor-header,
-  .mobile-workspace .editor-header {
+  .editor-header {
     display: block;
     width: 100%;
     max-width: var(--editor-page-width);
