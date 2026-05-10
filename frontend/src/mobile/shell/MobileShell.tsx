@@ -1,6 +1,7 @@
 import { IonContent, IonHeader, IonPage } from "@ionic/react";
 import { ArrowLeft, MessageCircle, RefreshCcw, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { loadSearchMemorySnapshot } from "../../search/searchMemory";
 import type { MobileFixtureMode } from "../MobileApp";
 import { MobileChatScreen } from "../chat/MobileChatScreen";
 import { MobileSettingsPlaceholder } from "../settings/MobileSettingsPlaceholder";
@@ -24,6 +25,10 @@ import {
   pushMobileScreen,
   type MobileScreen,
 } from "./mobileScreenStack";
+import {
+  formatMobileMemoryHeaderCount,
+  mobileMemoryHeaderCountFromSnapshot,
+} from "./mobileMemoryHeader";
 import { useViewportDiagnostics } from "./useViewportDiagnostics";
 
 type MobileShellProps = {
@@ -35,6 +40,7 @@ export function MobileShell({ initialMode }: MobileShellProps) {
   const [screenStack, setScreenStack] = useState(createMobileScreenStack);
   const screenStackRef = useRef(screenStack);
   const [sessionSnapshot, setSessionSnapshot] = useState<MobileSessionSnapshot>(() => loadInitialSessionSnapshot());
+  const [memoryHeaderLabel, setMemoryHeaderLabel] = useState("0/0");
   const topScreen = getTopMobileScreen(screenStack);
   const diagnostics = useViewportDiagnostics(topScreen);
   const diagnosticsEnabled = useMemo(readDiagnosticsEnabled, []);
@@ -79,6 +85,36 @@ export function MobileShell({ initialMode }: MobileShellProps) {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    if (mode === "connection") return undefined;
+    let cancelled = false;
+
+    const refreshMemoryHeader = async () => {
+      try {
+        const snapshot = await loadSearchMemorySnapshot();
+        if (cancelled) return;
+        setMemoryHeaderLabel(formatMobileMemoryHeaderCount(mobileMemoryHeaderCountFromSnapshot(snapshot)));
+      } catch {
+        if (!cancelled) setMemoryHeaderLabel("0/0");
+      }
+    };
+
+    void refreshMemoryHeader();
+    const interval = window.setInterval(refreshMemoryHeader, 10_000);
+    const onFocus = () => void refreshMemoryHeader();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshMemoryHeader();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [mode]);
 
   const recordActivity = useCallback(() => {
     persistSnapshot((current) => ({
@@ -144,7 +180,9 @@ export function MobileShell({ initialMode }: MobileShellProps) {
               <span className="ow-mobile-setup-dot" aria-label="Setup required" />
             ) : null}
           </div>
-          <strong className="ow-mobile-title">OpenWrite</strong>
+          <strong className="ow-mobile-title" aria-label="Digested files">
+            {memoryHeaderLabel}
+          </strong>
           <div className="ow-mobile-toolbar-side ow-mobile-toolbar-end">
             {topScreen.type === "chat" ? (
               <div
