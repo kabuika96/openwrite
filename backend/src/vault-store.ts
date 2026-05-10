@@ -13,6 +13,16 @@ import {
 } from "./page-file.js";
 import { readVaultAttachment, saveVaultAttachment } from "./vault-attachments.js";
 import {
+  createVaultExplorerFile,
+  createVaultExplorerFolder,
+  deleteVaultExplorerItem,
+  listVaultExplorer,
+  moveVaultExplorerItem,
+  readVaultExplorerFile,
+  renameVaultExplorerItem,
+  type VaultExplorerNode,
+} from "./vault-files.js";
+import {
   childDirectoryForFilePath,
   childDirectoryForPageId,
   filePathForPageId,
@@ -56,6 +66,30 @@ export function createVaultStore(options: VaultStoreOptions = {}) {
 
     listPages() {
       return readChildren(vaultPath, null);
+    },
+
+    listExplorer() {
+      return listVaultExplorer(vaultPath);
+    },
+
+    createFolder(input: Record<string, any> = {}) {
+      return createVaultExplorerFolder(vaultPath, input);
+    },
+
+    createFile(input: Record<string, any> = {}) {
+      return createVaultExplorerFile(vaultPath, input);
+    },
+
+    renameItem(input: Record<string, any> = {}) {
+      return renameVaultExplorerItem(vaultPath, input);
+    },
+
+    moveItem(input: Record<string, any> = {}) {
+      return moveVaultExplorerItem(vaultPath, input);
+    },
+
+    deleteItem(input: Record<string, any> = {}) {
+      return deleteVaultExplorerItem(vaultPath, input);
     },
 
     createPage(input: Record<string, any> = {}) {
@@ -123,7 +157,11 @@ export function createVaultStore(options: VaultStoreOptions = {}) {
     },
 
     readAttachment(relativePath: string) {
-      return readVaultAttachment(vaultPath, relativePath);
+      if (relativePath.split("/").filter(Boolean)[0] === "attachments") {
+        return readVaultAttachment(vaultPath, relativePath);
+      }
+
+      return readVaultExplorerFile(vaultPath, relativePath);
     },
 
     movePage(pageId: string, input: Record<string, any> = {}) {
@@ -165,8 +203,10 @@ export function createVaultStore(options: VaultStoreOptions = {}) {
 
     stats() {
       const visiblePages = countPageNodes(vault.listPages());
+      const visibleFiles = countVaultExplorerFiles(vault.listExplorer());
       return {
         documents: visiblePages,
+        files: visibleFiles,
         pages: visiblePages,
         storage: "vault-markdown-files",
         vaultPath,
@@ -234,4 +274,8 @@ function listChildPageEntries(vaultPath: string, parentId: string | null): Child
 
 function countPageNodes(nodes: PageNode[]): number {
   return nodes.reduce((count, node) => count + 1 + countPageNodes(node.children), 0);
+}
+
+function countVaultExplorerFiles(nodes: VaultExplorerNode[]): number {
+  return nodes.reduce((count, node) => count + (node.type === "file" ? 1 : countVaultExplorerFiles(node.children)), 0);
 }

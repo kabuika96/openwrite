@@ -75,6 +75,92 @@ test("round-trips Obsidian-style wiki links", () => {
   assert.deepEqual(markdownToProseMirrorJSON(markdown), json);
 });
 
+test("parses escaped wiki-link aliases inside Markdown table cells", () => {
+  const json = markdownToProseMirrorJSON("| Page |\n| --- |\n| [[Projects\\|Project list]] |\n");
+  const cellText = json.content[0].content[1].content[0].content[0].content[0];
+
+  assert.deepEqual(cellText, {
+    type: "text",
+    text: "Project list",
+    marks: [{ type: "wikiLink", attrs: { target: "Projects" } }],
+  });
+});
+
+test("round-trips typed table blocks through Markdown", () => {
+  const json = {
+    type: "doc",
+    content: [
+      {
+        type: "table",
+        attrs: {
+          openwriteColumns: [
+            { name: "Task", type: "text" },
+            { name: "Due", type: "date" },
+            { name: "Status", type: "singleSelect", options: ["Backlog", "Done"] },
+          ],
+        },
+        content: [
+          {
+            type: "tableRow",
+            content: [
+              tableCell("tableHeader", "Task"),
+              tableCell("tableHeader", "Due"),
+              tableCell("tableHeader", "Status"),
+            ],
+          },
+          {
+            type: "tableRow",
+            content: [
+              tableCell("tableCell", "Draft"),
+              tableCell("tableCell", "2026-05-03"),
+              tableCell("tableCell", "Backlog"),
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const markdown = proseMirrorJSONToMarkdown(json);
+
+  assert.equal(
+    markdown,
+    [
+      '<!-- openwrite-table: {"columns":[{"name":"Task","type":"text"},{"name":"Due","type":"date"},{"name":"Status","type":"singleSelect","options":["Backlog","Done"]}]} -->',
+      "| Task | Due | Status |",
+      "| --- | --- | --- |",
+      "| Draft | 2026-05-03 | Backlog |",
+      "",
+    ].join("\n"),
+  );
+  assert.deepEqual(markdownToProseMirrorJSON(markdown), json);
+});
+
+test("round-trips headerless table blocks with a blank Markdown table header convention", () => {
+  const json = {
+    type: "doc",
+    content: [
+      {
+        type: "table",
+        content: [
+          {
+            type: "tableRow",
+            content: [tableCell("tableCell", "A"), tableCell("tableCell", "B")],
+          },
+          {
+            type: "tableRow",
+            content: [tableCell("tableCell", "C"), tableCell("tableCell", "D")],
+          },
+        ],
+      },
+    ],
+  };
+  const markdown = "|  |  |\n| --- | --- |\n| A | B |\n| C | D |\n";
+
+  assert.equal(proseMirrorJSONToMarkdown(json), markdown);
+  assert.deepEqual(markdownToProseMirrorJSON(markdown), json);
+});
+
 test("preserves intentional empty paragraph lines between blocks", () => {
   const markdown = "Alpha\n\n\n\nBeta\n";
   const json = markdownToProseMirrorJSON(markdown);
@@ -95,6 +181,14 @@ test("preserves intentional empty paragraph lines between blocks", () => {
   assert.equal(proseMirrorJSONToMarkdown(json), markdown);
   assert.equal(markdownFromPageYDoc(createPageYDocFromMarkdown(markdown)), markdown);
 });
+
+function tableCell(type, text) {
+  return {
+    type,
+    attrs: { colspan: 1, rowspan: 1, colwidth: null },
+    content: [{ type: "paragraph", content: text ? [{ type: "text", text }] : undefined }],
+  };
+}
 
 test("preserves intentional empty paragraph lines at page edges", () => {
   const json = {

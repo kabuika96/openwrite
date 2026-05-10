@@ -149,6 +149,160 @@ export async function routeApiRequest({ request, response, instance, store, url 
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/search-memory") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.getSnapshot());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/config") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    sendJson(response, 200, await store.memory.updateConfig(body));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/search") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    sendJson(response, 200, await store.memory.search(body));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/chat/stream") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    response.writeHead(200, {
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "content-type": "text/event-stream; charset=utf-8",
+      "x-accel-buffering": "no",
+    });
+    const emit = (event: Record<string, unknown>) => {
+      response.write(`event: ${String(event.type ?? "message")}\n`);
+      response.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    try {
+      await store.memory.streamSearchChat(body, emit);
+    } catch (error) {
+      emit({
+        message: error instanceof Error ? error.message : "Search chat stream failed",
+        type: "turn.error",
+      });
+    } finally {
+      response.end();
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/validate") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.validateProviders());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/chatgpt-login/start") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.startChatGptLogin());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/chatgpt-login/poll") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    sendJson(response, 200, await store.memory.pollChatGptLogin(body));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/rescan") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.rescan());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/retry-failed") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.retryFailed());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/clear-answer-cache") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.clearAnswerCache());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/reset-interactions") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.resetInteractions());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/rebuild-embeddings") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.rebuildEmbeddings());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/search-memory/rebuild-index") {
+    requireVault(store);
+    sendJson(response, 200, await store.memory.rebuildIndex());
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/explorer/folders/create") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    const item = store.vault.createFolder({
+      name: requiredString(body.name, "name"),
+      parentPath: body.parentPath ?? "",
+    });
+    sendVaultState(response, store, { item });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/explorer/files/create") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    const item = store.vault.createFile({
+      kind: requiredString(body.kind, "kind"),
+      parentPath: body.parentPath ?? "",
+      title: requiredString(body.title ?? body.name, "title"),
+    });
+    sendVaultState(response, store, { item });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/explorer/rename") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    const item = store.vault.renameItem({
+      path: requiredString(body.path, "path"),
+      name: requiredString(body.name, "name"),
+    });
+    sendVaultState(response, store, { item });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/explorer/move") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    const item = store.vault.moveItem({
+      path: requiredString(body.path, "path"),
+      parentPath: body.parentPath ?? "",
+    });
+    sendVaultState(response, store, { item });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/explorer/delete") {
+    requireVault(store);
+    const body = await readJsonBody(request);
+    store.vault.deleteItem({ path: requiredString(body.path, "path") });
+    sendVaultState(response, store, { deleted: true });
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/pages/create") {
     requireVault(store);
     const body = await readJsonBody(request);
@@ -208,6 +362,7 @@ function sendVaultState(response: ServerResponse, store: any, extra: Record<stri
     sendJson(response, 200, {
       ...extra,
       ...store.getVaultState(),
+      explorer: [],
       storage: store.stats(),
       tree: [],
     });
@@ -217,6 +372,7 @@ function sendVaultState(response: ServerResponse, store: any, extra: Record<stri
   sendJson(response, 200, {
     ...extra,
     ...store.getVaultState(),
+    explorer: store.vault.listExplorer(),
     tree: store.vault.listPages(),
     storage: store.stats(),
   });

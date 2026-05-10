@@ -531,32 +531,3 @@ function dragEventCameFromRow(event: DragEvent<HTMLElement>) {
   const target = event.target;
   return target instanceof Element && Boolean(target.closest(".page-row"));
 }
-
-export function PagePicker({
-  activePageId,
-  pages,
-  onSelectPage,
-}: {
-  activePageId: string | null;
-  pages: FlatPage[];
-  onSelectPage: (pageId: string) => void;
-}) {
-  return (
-    <div className="mobile-page-picker">
-      {pages.map((page) => (
-        <button
-          type="button"
-          key={page.id}
-          className={page.id === activePageId ? "active" : ""}
-          style={{ paddingLeft: 18 + page.depth * 16 }}
-          onClick={() => onSelectPage(page.id)}
-        >
-          <span className="page-row-icon" aria-hidden="true">
-            <PageIconGlyph icon={page.icon} size={15} />
-          </span>
-          {page.title}
-        </button>
-      ))}
-    </div>
-  );
-}

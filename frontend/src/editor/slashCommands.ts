@@ -10,7 +10,9 @@ import {
   Pilcrow,
   Quote,
   Rows3,
+  Table as TableIcon,
 } from "lucide-react";
+import { insertOpenWriteTable } from "./TableBlock";
 
 export type SlashCommand = {
   id: string;
@@ -80,6 +82,17 @@ export const slashCommands: SlashCommand[] = [
       if (chain.setDetails().run()) {
         editor.chain().focus().updateAttributes("details", { open: true }).run();
       }
+    },
+  },
+  {
+    id: "table",
+    label: "Table",
+    Icon: TableIcon,
+    run: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.run();
+      insertOpenWriteTable(editor);
     },
   },
   {

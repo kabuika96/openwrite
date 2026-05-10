@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, "../", "");
+  const env = { ...loadEnv(mode, "../", ""), ...process.env };
   const backendPort = env.OPENWRITE_BACKEND_PORT || "8787";
   const backendHttpOrigin = env.OPENWRITE_BACKEND_HTTP_ORIGIN || `http://127.0.0.1:${backendPort}`;
   const backendWsOrigin = env.OPENWRITE_BACKEND_WS_ORIGIN || toWebSocketOrigin(backendHttpOrigin);

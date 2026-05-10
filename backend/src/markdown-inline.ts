@@ -44,14 +44,14 @@ export function escapeObsidianLinkValue(value: unknown): string {
 }
 
 export function unescapeObsidianLinkValue(value: unknown): string {
-  return String(value ?? "").replace(/\\([\\\]])/g, "$1");
+  return String(value ?? "").replace(/\\([\\\]|])/g, "$1");
 }
 
 function findNextInlineToken(text: string, cursor: number): PositionedInlineToken | null {
   const patterns: InlinePattern[] = [
     {
       kind: "wikiLink",
-      pattern: /\[\[([^|\]]+)(?:\|([^\]]+))?]]/g,
+      pattern: /\[\[((?:\\.|[^|\]])+)(?:(?:\||\\\|)((?:\\.|[^\]])+))?]]/g,
       toToken: (match) => {
         const target = unescapeObsidianLinkValue(match[1].trim());
         const displayText = unescapeObsidianLinkValue(match[2]?.trim() || target);

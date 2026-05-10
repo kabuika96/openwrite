@@ -1,0 +1,575 @@
+html.ow-mobile-document,
+body.ow-mobile-document,
+html.ow-mobile-document body,
+html.ow-mobile-document #root {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #050505;
+}
+
+.ow-mobile-app {
+  --ion-font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ion-background-color: #050505;
+  --ion-text-color: #f3f3f0;
+  --ion-color-primary: #f3f3f0;
+  --ion-toolbar-background: #050505;
+  --ion-toolbar-color: #f3f3f0;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  background: #050505;
+  color: #f3f3f0;
+  overflow: hidden;
+}
+
+.ow-mobile-app *,
+.ow-mobile-app *::before,
+.ow-mobile-app *::after {
+  letter-spacing: 0;
+  scroll-behavior: auto !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.ow-mobile-page {
+  background: #050505;
+  color: #f3f3f0;
+}
+
+.ow-mobile-header {
+  z-index: 20;
+  border-bottom: 1px solid rgba(243, 243, 240, 0.12);
+  background: #050505;
+}
+
+.ow-mobile-toolbar {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(48px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  background: #050505;
+}
+
+.ow-mobile-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 48px;
+  color: #f3f3f0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.ow-mobile-toolbar-side {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 5px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  min-width: 48px;
+  height: 48px;
+}
+
+.ow-mobile-toolbar-end {
+  right: 5px;
+  left: auto;
+  justify-content: flex-end;
+}
+
+.ow-mobile-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  color: #f3f3f0;
+}
+
+.ow-mobile-icon-button:active {
+  background: rgba(243, 243, 240, 0.1);
+}
+
+.ow-mobile-button-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ow-mobile-toolbar-end .ow-mobile-icon-button {
+  right: auto;
+  left: auto;
+}
+
+.ow-mobile-setup-dot {
+  position: fixed;
+  top: calc(20px + env(safe-area-inset-top));
+  left: 52px;
+  z-index: 31;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0;
+  border-radius: 999px;
+  background: #ffd166;
+}
+
+.ow-mobile-content {
+  --background: #050505;
+  --color: #f3f3f0;
+  --keyboard-offset: 0px;
+}
+
+.ow-mobile-chat-content::part(scroll),
+.ow-mobile-settings-content::part(scroll),
+.ow-mobile-source-content::part(scroll) {
+  background: #050505;
+  overscroll-behavior: contain;
+}
+
+.ow-mobile-chat-log {
+  display: grid;
+  align-content: end;
+  min-height: 100%;
+  gap: 18px;
+  padding: 18px 16px 22px;
+}
+
+.ow-mobile-turn {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ow-mobile-chat-bottom {
+  width: 1px;
+  height: 1px;
+  margin-top: -18px;
+  pointer-events: none;
+}
+
+.ow-mobile-query {
+  justify-self: end;
+  max-width: min(86%, 520px);
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(243, 243, 240, 0.16);
+  border-radius: 8px;
+  background: #111;
+  color: #f3f3f0;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.ow-mobile-answer,
+.ow-mobile-muted-line,
+.ow-mobile-error {
+  max-width: min(94%, 640px);
+  margin: 0;
+  color: #f3f3f0;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ow-mobile-error {
+  color: #ff8f8f;
+}
+
+.ow-mobile-muted-line {
+  color: rgba(243, 243, 240, 0.58);
+}
+
+.ow-mobile-reasoning-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: min(94%, 640px);
+  min-height: 32px;
+  padding: 0;
+  color: rgba(243, 243, 240, 0.62);
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  animation: ow-mobile-pending-brightness 1.25s linear infinite !important;
+}
+
+.ow-mobile-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ow-mobile-resource-block {
+  display: grid;
+  gap: 8px;
+  max-width: min(94%, 640px);
+}
+
+.ow-mobile-resource-summary {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  color: rgba(243, 243, 240, 0.72);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.ow-mobile-resource-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ow-mobile-resource-summary small {
+  color: rgba(243, 243, 240, 0.42);
+  font-size: 11px;
+}
+
+@keyframes ow-mobile-pending-brightness {
+  0%,
+  100% {
+    filter: brightness(0.72);
+  }
+
+  50% {
+    filter: brightness(1.45);
+  }
+}
+
+.ow-mobile-source-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 32px;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(243, 243, 240, 0.14);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(243, 243, 240, 0.78);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.ow-mobile-source-chip:active {
+  background: rgba(243, 243, 240, 0.08);
+}
+
+.ow-mobile-composer-footer {
+  z-index: 18;
+  border-top: 1px solid rgba(243, 243, 240, 0.12);
+  background: #050505;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.ow-mobile-composer {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.ow-mobile-composer-input {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  min-width: 0;
+  height: 40px;
+  max-height: 132px;
+  margin: 0;
+  padding: 9px 58px 9px 11px;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: #f3f3f0;
+  caret-color: #f3f3f0;
+  font-size: 16px;
+  line-height: 1.35;
+  resize: none;
+  overflow-y: auto;
+}
+
+.ow-mobile-composer-input::placeholder {
+  color: rgba(243, 243, 240, 0.48);
+}
+
+.ow-mobile-send-button {
+  display: inline-flex;
+  position: fixed;
+  right: 10px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 30;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  color: #f3f3f0;
+}
+
+.ow-mobile-send-button[aria-disabled="true"] {
+  background: transparent;
+  box-shadow: none;
+  color: rgba(243, 243, 240, 0.42);
+  opacity: 1;
+}
+
+.ow-mobile-setup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 14px;
+  border-top: 1px solid rgba(255, 209, 102, 0.24);
+  border-bottom: 1px solid rgba(255, 209, 102, 0.14);
+  background: rgba(255, 209, 102, 0.1);
+  color: #ffd166;
+  font-size: 12px;
+}
+
+.ow-mobile-state-content::part(scroll) {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: calc(24px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+}
+
+.ow-mobile-state {
+  display: grid;
+  gap: 12px;
+  width: min(420px, 100%);
+}
+
+.ow-mobile-state h1 {
+  margin: 0;
+  color: #f3f3f0;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.ow-mobile-state-kicker,
+.ow-mobile-surface-kicker {
+  margin: 0;
+  color: rgba(243, 243, 240, 0.52);
+  font-size: 12px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ow-mobile-state-detail {
+  margin: 0;
+  color: rgba(243, 243, 240, 0.66);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ow-mobile-state-actions,
+.ow-mobile-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ow-mobile-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  gap: 8px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid rgba(243, 243, 240, 0.18);
+  border-radius: 8px;
+  background: transparent;
+  color: #f3f3f0;
+  font-size: 13px;
+}
+
+.ow-mobile-action-button:active {
+  background: rgba(243, 243, 240, 0.1);
+}
+
+.ow-mobile-action-button:disabled {
+  opacity: 0.42;
+}
+
+.ow-mobile-settings-view,
+.ow-mobile-source-view {
+  display: grid;
+  gap: 22px;
+  min-height: 100%;
+  padding: 20px 16px calc(26px + env(safe-area-inset-bottom));
+}
+
+.ow-mobile-settings-section,
+.ow-mobile-source-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.ow-mobile-source-view h1 {
+  margin: 0;
+  color: #f3f3f0;
+  font-size: 22px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.ow-mobile-source-panel {
+  padding-top: 6px;
+  border-top: 1px solid rgba(243, 243, 240, 0.12);
+}
+
+.ow-mobile-source-panel p,
+.ow-mobile-settings-note {
+  margin: 0;
+  color: rgba(243, 243, 240, 0.66);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ow-mobile-settings-note.ready {
+  color: #9be29b;
+}
+
+.ow-mobile-settings-note.error {
+  color: #ff8f8f;
+}
+
+.ow-mobile-status-grid {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid rgba(243, 243, 240, 0.12);
+  border-radius: 8px;
+  background: rgba(243, 243, 240, 0.06);
+}
+
+.ow-mobile-status-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 42px;
+  padding: 0 12px;
+  background: #0d0d0d;
+  color: rgba(243, 243, 240, 0.74);
+  font-size: 13px;
+}
+
+.ow-mobile-status-line strong {
+  color: #ffd166;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ow-mobile-status-line strong.ready {
+  color: #9be29b;
+}
+
+.ow-mobile-settings-list {
+  overflow: hidden;
+  border: 1px solid rgba(243, 243, 240, 0.12);
+  border-radius: 8px;
+  background: #0d0d0d;
+}
+
+.ow-mobile-settings-list ion-item {
+  --background: #0d0d0d;
+  --border-color: rgba(243, 243, 240, 0.1);
+  --color: #f3f3f0;
+  --highlight-color-focused: rgba(243, 243, 240, 0.18);
+  --inner-padding-end: 12px;
+  --min-height: 48px;
+  font-size: 13px;
+}
+
+.ow-mobile-settings-list ion-input,
+.ow-mobile-settings-list ion-select {
+  --color: #f3f3f0;
+  --placeholder-color: rgba(243, 243, 240, 0.42);
+  font-size: 13px;
+}
+
+.ow-mobile-settings-list ion-toggle {
+  --handle-background: #f3f3f0;
+  --track-background: rgba(243, 243, 240, 0.16);
+  --track-background-checked: #9be29b;
+}
+
+.ow-mobile-diagnostics {
+  position: fixed;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 50;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 8px;
+  border: 1px solid rgba(243, 243, 240, 0.18);
+  border-radius: 8px;
+  background: rgba(5, 5, 5, 0.92);
+  color: rgba(243, 243, 240, 0.78);
+  font-size: 10px;
+}
+
+.ow-mobile-diagnostics dl {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.ow-mobile-diagnostics div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.ow-mobile-diagnostics dt,
+.ow-mobile-diagnostics dd {
+  margin: 0;
+}
+
+.ow-mobile-diagnostics dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

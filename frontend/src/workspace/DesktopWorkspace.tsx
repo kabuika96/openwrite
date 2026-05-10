@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { OpenWriteEditor } from "../editor/OpenWriteEditor";
+import { SearchMemoryPanel } from "../search/SearchMemoryPanel";
 import { defaultPageIcon, type FlatPage } from "../sync/pageTree";
 import type { PageTreeController } from "../sync/usePageTree";
+import type { VaultExplorerFileNode } from "../sync/vaultExplorer";
 import type { LocalUser } from "../types";
-import { PageTreeView } from "./PageTreeView";
+import { VaultFilePreview } from "./VaultFilePreview";
 import { VaultProfileMenu } from "./VaultProfileMenu";
+import { VaultExplorerView } from "./VaultExplorerView";
 import { openWorkspaceWikiLink, renameWorkspacePage, setWorkspacePageIcon } from "./workspacePageActions";
 import {
   clampDesktopSidebarWidth,
@@ -17,9 +20,11 @@ import {
 } from "./sidebarResize";
 
 type WorkspaceProps = {
+  activeFileId: string | null;
   activePage: FlatPage | null;
   activePageId: string | null;
   flatPages: FlatPage[];
+  onOpenConfigs: () => void;
   onOpenVaultManager: () => void;
   pageTree: PageTreeController;
   setActivePageId: (pageId: string) => void;
@@ -28,9 +33,11 @@ type WorkspaceProps = {
 };
 
 export function DesktopWorkspace({
+  activeFileId,
   activePage,
   activePageId,
   flatPages,
+  onOpenConfigs,
   onOpenVaultManager,
   pageTree,
   setActivePageId,
@@ -40,6 +47,7 @@ export function DesktopWorkspace({
   const [viewportWidth, setViewportWidth] = useState(() => getCurrentViewportWidth());
   const [sidebarWidth, setSidebarWidth] = useState(() => readStoredSidebarWidth(getCurrentViewportWidth()));
   const [resizingSidebar, setResizingSidebar] = useState(false);
+  const [activePreviewFile, setActivePreviewFile] = useState<VaultExplorerFileNode | null>(null);
   const sidebarWidthRef = useRef(sidebarWidth);
   const resizeCleanupRef = useRef<(() => void) | null>(null);
   sidebarWidthRef.current = sidebarWidth;
@@ -73,6 +81,12 @@ export function DesktopWorkspace({
 
   const sidebarMaxWidth = getDesktopSidebarMaxWidth(viewportWidth);
   const workspaceStyle = { "--desktop-sidebar-width": `${sidebarWidth}px` } as CSSProperties;
+  const highlightedFileId = activePreviewFile?.id ?? activeFileId;
+
+  function openPage(pageId: string) {
+    setActivePreviewFile(null);
+    setActivePageId(pageId);
+  }
 
   function resizeSidebar(nextWidth: number, nextViewportWidth = getCurrentViewportWidth()) {
     setViewportWidth(nextViewportWidth);
@@ -145,9 +159,20 @@ export function DesktopWorkspace({
   return (
     <main className={resizingSidebar ? "desktop-workspace resizing-sidebar" : "desktop-workspace"} style={workspaceStyle}>
       <aside className="desktop-sidebar">
-        <PageTreeView activePageId={activePageId} pageTree={pageTree} onSelectPage={setActivePageId} />
+        <VaultExplorerView
+          activeFileId={highlightedFileId}
+          explorer={pageTree.explorer}
+          onSelectFile={setActivePreviewFile}
+          pageTree={pageTree}
+          onSelectPage={openPage}
+        />
         <footer className="sidebar-footer">
-          <VaultProfileMenu pageCount={flatPages.length} pageTree={pageTree} onOpenVaultManager={onOpenVaultManager} />
+          <VaultProfileMenu
+            pageCount={flatPages.length}
+            pageTree={pageTree}
+            onOpenConfigs={onOpenConfigs}
+            onOpenVaultManager={onOpenVaultManager}
+          />
         </footer>
       </aside>
 
@@ -167,28 +192,35 @@ export function DesktopWorkspace({
         onPointerDown={handleSidebarResizePointerDown}
       />
 
-      <OpenWriteEditor
-        pageId={activePageId}
-        pageIcon={activePage?.icon ?? defaultPageIcon}
-        pageTitle={activePage?.title ?? "Untitled"}
-        pages={flatPages}
-        onRenamePage={async (title) => {
-          await renameWorkspacePage({ activePageId, onOpenPage: setActivePageId, pageTree, title });
-        }}
-        onSetPageIcon={async (icon) => {
-          await setWorkspacePageIcon({ activePageId, icon, pageTree });
-        }}
-        onOpenWikiLink={(target) => {
-          void openWorkspaceWikiLink({
-            onOpenPage: setActivePageId,
-            pageTree,
-            pages: flatPages,
-            target,
-          });
-        }}
-        onOpenWriterProfile={onOpenWriterProfile}
-        user={user}
-      />
+      <section className="workspace-main">
+        <SearchMemoryPanel folderPath={activePreviewFile?.path ?? activePageId ?? ""} />
+        {activePreviewFile ? (
+          <VaultFilePreview file={activePreviewFile} />
+        ) : (
+          <OpenWriteEditor
+            pageId={activePageId}
+            pageIcon={activePage?.icon ?? defaultPageIcon}
+            pageTitle={activePage?.title ?? "Untitled"}
+            pages={flatPages}
+            onRenamePage={async (title) => {
+              await renameWorkspacePage({ activePageId, onOpenPage: openPage, pageTree, title });
+            }}
+            onSetPageIcon={async (icon) => {
+              await setWorkspacePageIcon({ activePageId, icon, pageTree });
+            }}
+            onOpenWikiLink={(target) => {
+              void openWorkspaceWikiLink({
+                onOpenPage: openPage,
+                pageTree,
+                pages: flatPages,
+                target,
+              });
+            }}
+            onOpenWriterProfile={onOpenWriterProfile}
+            user={user}
+          />
+        )}
+      </section>
     </main>
   );
 }

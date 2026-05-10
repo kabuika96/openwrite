@@ -6,12 +6,113 @@ OpenWrite is a local-first, realtime Markdown-native note app for computer and m
 
 - Local server: the OpenWrite environment served from one machine to browsers on the same LAN.
 - Vault: the normal local folder chosen by the user that stores OpenWrite pages as Markdown files.
-- Page tree: the nested page hierarchy derived from Markdown files and same-name child folders in the vault.
+- Vault explorer: the nested navigation surface derived from folders and accepted vault files.
+- Folder: a normal filesystem directory inside the vault that groups pages, attachments, and other folders at arbitrary depth.
+- Page tree: the Markdown-page subset of the vault explorer.
 - Page: a named writing surface represented by one Markdown file in the vault.
 - Page file: the Markdown file that durably stores one page's editor content and frontmatter metadata.
+- Vault file: an accepted file in the vault, including Markdown notes, canvases, images, audio, video, and PDFs.
+- Note property: a page file frontmatter value used for page metadata such as icon and order.
+- File property: metadata derived from a vault file, such as name, path, extension, folder, size, created time, or modified time.
+- Extracted file text: searchable text derived from a vault file's actual contents; the first slice covers all accepted vault files after the user opts in.
+- Search digest: a clean searchable representation of one vault file's contents produced by an extraction job for the vault memory index.
+- Structured search digest: a JSON search digest with searchable text, summary, key terms, useful entities such as dates, people, and places, and provenance hints back to the source vault file.
+- Vault memory index: the OpenWrite-owned, rebuildable derived index for search and recall across accepted vault files, file properties, source spans, structured search digests, memory cards, entities, relationships, events, and ranking signals.
+- Source span: a provenance pointer to a specific portion of a source vault file, such as a text snippet, page, section, frame, or timestamp.
+- Memory card: a deduplicated, source-backed concept or claim derived from one or more source spans.
+- Memory entity: a source-backed person, place, organization, object, project, or other named concept in the vault memory index.
+- Memory relationship: a source-backed typed connection between memory entities or memory cards.
+- Memory event: a source-backed dated or time-anchored occurrence derived from vault files.
+- Memory alias: an alternate name retained for a deduplicated memory card or memory entity.
+- Possible duplicate relationship: a weak memory relationship used when two memory objects may refer to the same concept but should not be automatically merged.
+- OpenAI embedding provider: the OpenAI API integration used only to generate embedding vectors for the vault memory index after the user enables Search & Memory.
+- Provider validation: a user-triggered Search & Memory setup check that verifies configured providers are reachable and working before the user relies on them for indexing or answers.
+- Embedding vector: a numeric representation of a source span or memory object used as one ranking signal inside the vault memory index.
+- OpenAI model provider: the ChatGPT Codex Responses-compatible pathway OpenWrite calls directly for AI-assisted extraction and answer synthesis, authenticated by a ChatGPT subscription sign-in token rather than an OpenAI API key or project-specific proxy model name.
+- ChatGPT sign-in token: the local bearer token produced by the ChatGPT subscription sign-in flow from the Configs page or a compatible Hermes/OpenAI Codex-style auth store, used only for OpenAI model calls.
+- OpenAI model integration state: whether the OpenAI model provider has a ChatGPT sign-in token, endpoint, selected task reasoning levels, enabled vault features, and current reachability for extraction or answer jobs.
+- Extraction job: OpenWrite-owned background work for deriving extracted file text from one vault file and writing the result into the vault memory index.
+- Extraction status: the current outcome for one extraction job, such as pending, running, indexed, unsupported, failed, or stale.
+- Extraction queue: the OpenWrite-owned persistent backlog of extraction jobs that waits when model provider capacity is unavailable and resumes when a model call becomes available.
+- Embedding job: OpenWrite-owned background work for generating embedding vectors from digested source spans and memory objects.
+- Embedding queue: the OpenWrite-owned persistent backlog of embedding jobs that batches OpenAI embedding requests and handles rate-limit backoff independently from model runners.
+- Answer runner: the OpenWrite-managed model runner pool used for query-time search answer jobs.
+- Search answer job: OpenWrite-owned query-time model work that synthesizes a search answer from a query and ranked search evidence.
+- Configs page: the OpenWrite product surface for app configuration and local integration status, including whether the OpenAI model provider and OpenAI embedding provider are configured and usable.
+- Header integration indicator: an app-header status shown only when Search & Memory needs attention, such as disabled AI integration, missing model provider config, OpenAI API/auth or config problems, backed-up queues, failed digests, failed embeddings, or stale index state.
+- Search experience: the content-discovery workflow that should feel instinctive, fast, and intent-aware while always preserving provenance back to vault files.
+- Search chat session: the mobile-first Search & Memory conversation surface that stores one active app-local conversation, sends explicit submitted queries to the vault search pipeline, and renders either an evidence-bound answer or first-class search evidence based on query intent. It is not a Memory view or a file explorer, and expired sessions are retained only as hidden app-local history with no visible UI.
+- Search chat session store: browser-local state for the first slice that persists the active mobile search chat session, recent activity timestamp, user messages, final assistant answers, final evidence references, errors, and hidden archived sessions. It is device-local UI continuity state, not server state and not vault content.
+- Search chat inactivity timeout: the 30-minute no-activity window after which the active mobile search chat session is archived into hidden app-local history and the next app return shows a fresh search chat.
+- Mobile session lifecycle: the mobile storage behavior that checks the 30-minute inactivity timeout on boot, reload, visibility changes, focus/Home Screen return, and before starting a new turn; fresh sessions restore the active chat, while expired sessions move to hidden browser-local history and are replaced by a fresh chat.
+- Search chat stream: the streaming response channel for a search chat turn, carrying retrieval evidence, user-safe progress notes, response-mode decisions, answer text deltas, source updates, and completion or error events as they become available.
+- Mobile source viewer: the full-screen mobile surface opened from a search chat source chip, evidence item, file, or snippet, with a back arrow returning to the same chat session and scroll position.
+- Mobile source preview policy: every mobile evidence item, source chip, file, and snippet is clickable in the first slice; the source viewer renders text and Markdown as readable text, images inline, audio and video with native browser controls, PDFs through the browser's native viewer, and canvas or unknown files as metadata, snippet, and an open-original action.
+- Mobile terminal-adjacent chrome: the Opencozy-inspired black mobile shell for search chat, source viewer chrome, and mobile settings surfaces. It should feel powerful through restraint: simple, direct, neutral, iOS-feeling, and terminal-adjacent without fake terminal prompts, green control chrome, faux command rows, or marketing-style empty states. Editor content may keep readable writing typography inside that dark shell.
+- Mobile PWA: the planned installable browser-based phone experience for OpenWrite, optimized first for iPhone Safari/Home Screen and fast iteration while feeling native to iOS.
+- Mobile PWA route: the dedicated route inside the existing `frontend` package, such as `/mobile`, that serves the supported phone experience without adding a separate workspace or native app package.
+- Mobile explicit route: the routing policy that `/mobile` is opened or installed deliberately by the user rather than reached through automatic small-screen redirects in the first slice.
+- Mobile screen stack: the shell-owned local navigation stack for the first-slice mobile PWA, with chat as the base screen and source/settings as full-screen surfaces. Browser Back closes the top surface before leaving `/mobile`, but source/settings are not URL-addressable subroutes yet.
+- Mobile install metadata: route-specific PWA metadata for the phone experience, including a `/mobile` start URL, `/mobile` scope, standalone display, mobile theme color, iOS-friendly icon metadata, and document metadata owned by the mobile route when needed.
+- Mobile conservative cache policy: the first-slice service-worker rule that Home Screen installation must not imply offline vault/search behavior and must not explicitly cache search results, source files, provider state, local API responses, ChatGPT sign-in state, or streaming responses.
+- Mobile PWA shell module: the isolated frontend module tree for the mobile PWA route, sharing typed API contracts where useful but owning its own app shell, session state, viewport contract, source viewer, settings screens, and CSS.
+- Mobile module boundary: the clean `frontend/src/mobile/` split that keeps route/app setup, shell mechanics, chat presentation, source viewing, settings UI, first-slice API access, browser-local storage, and mobile-only styles in separate modules.
+- Mobile PWA API boundary: the deliberately narrow first-slice backend contract for `/mobile`, limited to health, search chat streaming, source file retrieval, Search & Memory settings snapshot/update, provider validation, and ChatGPT sign-in.
+- Mobile setup-required chat state: the server-reachable but Search & Memory-incomplete mobile state where the chat shell remains visible, the header attention indicator is shown, query submission is disabled, a compact setup row appears above the composer, and the primary action opens full-screen Search & Memory settings.
+- Mobile Search & Memory settings scope: the first-slice mobile settings boundary where setup controls are editable on phone, setup/status indicators are readable on phone, and heavy maintenance controls such as rescan, retry failed, cache clearing, signal reset, embedding rebuild, and memory-index rebuild stay desktop-only.
+- Mobile search stream adapter: the mobile chat presentation adapter that consumes the shared backend search chat stream events and turns them into mobile turn state, progress notes, response/evidence display modes, answer deltas, source chips, evidence visibility, errors, completion, and browser-local durable transcript artifacts.
+- Mobile active turn policy: the first-slice mobile rule that one search chat session has at most one active streaming turn; while active, the composer becomes a stop/cancel control, additional submitted queries are not queued, cancellation aborts the stream, and partial cancelled turns remain ephemeral unless final `turn.done` already arrived.
+- Mobile evidence presentation policy: the mobile rendering rule that backend-provided `responseMode` and `evidenceDisplay` drive whether evidence is subtle, inline, or primary; mobile fallback defaults are answer -> subtle, mixed -> inline, and search -> primary only when stream values are missing.
+- Mobile iOS component kit: Ionic React components used inside the `/mobile` PWA for iOS-feeling primitives such as app/page structure, toolbars, content regions, buttons, textareas, lists, items, toggles, selects, modals, sheets, toast/loading states, and back controls. OpenWrite owns navigation state, search behavior, viewport ownership, and visual restraint.
+- Mobile shell spike: the first clean-slate `/mobile` implementation slice, using Ionic primitives, dummy streamed chat content, a stable header, bottom composer, source/settings placeholders, and viewport/keyboard diagnostics to prove the shell contract before real search wiring.
+- Mobile shell spike validation gate: the requirement that the shell spike pass typecheck, shell/unit tests, a `/mobile` browser smoke test, manual iPhone Safari validation, and manual installed Home Screen PWA validation before real search APIs, provider state, or file retrieval are wired.
+- Clean-slate mobile implementation: the requirement that the new `/mobile` PWA is built from a new module tree and new CSS rather than fixing or reusing the legacy `MobileWorkspace`, `MobileShell`, mobile search chat, or mobile source viewer code.
+- iOS-feel mobile chrome: mobile UI that follows iOS interaction expectations through system typography, safe-area respect, direct touch controls, stable header and bottom composer behavior, and simple full-screen navigation, without imitating native visuals through fake chrome.
+- Mobile app shell: the mobile-PWA layout boundary with a stable header, one main content region, and a bottom composer or action area controlled by one shell-level keyboard and safe-area contract.
+- Mobile server connection: the app-local remembered LAN server URL that the mobile PWA validates with `/api/health` before using OpenWrite APIs when it is not served from the same OpenWrite server.
+- Mobile connection state: the full-screen mobile state shown when the remembered server URL or same-origin `/api/health` check fails, with attempted server URL, retry, editable server URL, and concise status; it replaces the chat shell and does not queue searches, fake offline answers, or perform LAN discovery in the first slice.
+- Mobile keyboard layout contract: the shell-wide product guarantee that a focused mobile input or bottom action surface remains usable against the on-screen keyboard without exposing blank page space outside the OpenWrite shell.
+- Mobile scroll owner: the one intentional scrollable region on a mobile screen; for search chat it is the message/evidence log, and for source viewing it is the source viewer body.
+- Mobile visible viewport shell: the browser/PWA shell contract where the OpenWrite mobile app owns viewport height, safe areas, fixed header/composer placement, and the single scroll owner at the shell boundary rather than in individual screens.
+- Legacy mobile shell: the removed mobile web implementation based on automatic device detection, `MobileWorkspace`, `MobileShell`, legacy mobile search chat, and legacy mobile source viewer components.
+- Search retrieval loop: the query-time ReAct-style retrieval process that iteratively plans, searches, inspects evidence, refines follow-up searches, and decides when enough context has been collected before final answer synthesis.
+- Search progress note: a concise user-visible summary of what the search retrieval loop is doing or learning, derived from retrieval actions and observations rather than exposing raw private model reasoning.
+- Durable search chat artifact: the part of a search chat turn saved into the browser-local session transcript, including the user message, final answer when present, final response and evidence display modes, final evidence/source references, and errors.
+- Ephemeral search chat progress: streamed retrieval-loop progress notes, intermediate refinements, retrieval status, and partial answer deltas shown only while a turn is running and not persisted into the chat transcript by default.
+- Context collection phase: the part of a search chat turn before final answer synthesis where OpenWrite gathers, reranks, and validates enough evidence through the search retrieval loop.
+- Query intent classification: the backend-owned step that determines whether a submitted search chat query wants an answer, ranked search evidence, or both, using the query and top ranked evidence with a local fallback when the model provider is unavailable.
+- Search response mode: the backend-returned rendering instruction for a search chat turn, such as answer-first, evidence-first, or mixed, so the frontend does not infer intent from text patterns.
+- Evidence display mode: the backend-returned rendering instruction for whether evidence should be subtle, inline, or primary in a search chat turn, derived alongside the search response mode.
+- Hybrid search: query-time retrieval that combines lexical matches, file properties, structured search digest signals, and rank fusion.
+- Lexical search index: the app-local full-text index over vault file paths, titles, file properties, structured search digests, and source text snippets.
+- Search ranking pipeline: the query-time process that retrieves candidates quickly, fuses ranking signals, and prepares provenance-rich results for answer synthesis.
+- Search answer: an evidence-bound model response to the user's query based on the query and the ranked search results selected by OpenWrite.
+- Evidence-bound answer: a search answer constrained to the retrieved search evidence, with limitations or disagreement stated instead of unsupported claims.
+- Search evidence: the ranked result list, snippets, and provenance used to produce a search answer.
+- Evidence pack: the token-budgeted, diversified subset of search evidence sent to the model provider for answer synthesis.
+- Source chip: a compact inline citation in a search answer that points to one source item from the search evidence.
+- Evidence toggle: the user-controlled affordance that reveals or hides the search evidence behind a search answer.
+- Search scope: a user-selected filter applied before retrieval and evidence packing, such as All, Pages, Files, Images/PDFs, or the current folder/subtree.
+- Search inactive state: the answer-area state shown when AI answer synthesis is inactive, while local ranked search evidence remains available.
+- Search answer cache: disposable app-local cache of recent AI answers keyed by vault, query, scope, evidence-pack fingerprint, and model config fingerprint.
+- File fingerprint: the tracked identity of a vault file revision, using path, size, modified time, and a content hash when cheap enough to compute.
+- Dirty file candidate: a vault file whose fingerprint changed and is waiting for a minimum quiet age before indexing.
+- Indexing quiet age: the short debounce window for editable vault files, such as Markdown pages, before OpenWrite indexes or queues digestion for that revision.
+- Indexing scheduler: the OpenWrite-owned backend loop that promotes dirty file candidates into metadata indexing and extraction jobs.
+- Vault watcher: the backend listener that notices recursive changes to accepted vault files, including files edited outside OpenWrite.
+- Index freshness: the visible freshness and completeness state for one indexed vault file or evidence item, such as indexed, digesting, stale, metadata-only, failed, or unsupported.
+- Memory importance: an explainable ranking signal for memory objects and evidence based on source count, headings, repeated mentions, recency, file type, user interactions, and optional model-proposed importance.
+- Importance breakdown: the stored explanation of which signals contributed to a memory importance score.
+- Interaction signal: app-local private ranking input from user behavior such as opened results, clicked source chips, dismissed results, and search history.
 - Page doc: the collaborative Yjs document used while one page is open for realtime editing.
 - Block: an ordered content unit inside a page doc.
-- Block type: the rendering and interaction mode for a block, such as paragraph, heading, quote, divider, todo, numbered list, bulleted list, or toggle list.
+- Block type: the rendering and interaction mode for a block, such as paragraph, heading, quote, divider, todo, numbered list, bulleted list, toggle list, or table.
+- Table block: a normal in-page block for grid-shaped content stored inside a page file rather than a vault-level view.
+- Table header: the optional first row of a table block that provides stable column labels.
+- Typed table column: a table block column with a value type attached to its header; headerless table blocks behave as plain editable text grids without column value enforcement.
+- Table value type: the editable value shape enforced by a typed table column; first-slice table blocks support text, number, checkbox, date, page link, single select, and multi select values.
+- Table select option: a table-local option defined on one typed table column; single select cells store one option and multi select cells store zero or more options from that column.
+- Table page link value: a typed table cell value that stores an internal page reference rather than free text.
 - Presence: ephemeral display name, color, cursor, and connection state for each active local session.
 - Desktop experience: the computer-oriented UI with persistent navigation and dense controls.
 - Mobile experience: the phone-oriented UI with a focused stack and touch-first actions.
@@ -49,6 +150,81 @@ OpenWrite is a local-first, realtime Markdown-native note app for computer and m
 - Contributor setup should stay in the npm and TypeScript workflow; normal contributors should not need Xcode to work on the desktop app shell.
 - One useful vertical slice before broader note-app features.
 - Plain, inspectable durability using a normal Markdown vault folder.
+- Content-based discovery should be owned by OpenWrite and derived from vault file contents, not delegated to filename-only or agent-specific sidecar search.
+- Derived indexes should stay outside the vault so generated search state does not pollute portable user content.
+- The vault memory index should be the single derived search and recall architecture; lexical search, structured digests, memory cards, entities, relationships, events, freshness, and importance are signals in one model rather than separate systems.
+- Memory cards, memory entities, memory relationships, and memory events are derived read-only objects in the first slice; users edit source vault files rather than editing the memory layer directly.
+- Concept deduplication should be conservative: automatically merge only high-confidence exact or near-exact memory objects, preserve aliases and all source spans, and use possible duplicate relationships when identity is uncertain.
+- Memory importance should be explainable and bounded. The model provider may propose importance, but OpenWrite should store an importance breakdown rather than relying on an opaque score alone.
+- Interaction signals should stay outside the vault as resettable app-local memory index state, because user behavior is not portable vault content.
+- AI-assisted extraction should use the configured ChatGPT Codex Responses-compatible model provider authenticated by ChatGPT sign-in, while OpenWrite owns scheduling, queueing, status, and indexed results.
+- AI extraction is opt-in per vault; OpenWrite must not generate extracted file text or search digests for accepted vault files until the user enables it.
+- Unsupported or failed extraction jobs should not block the extraction queue; the affected file remains searchable by file properties and can be retried when the file changes or the user manually retries it.
+- OpenWrite should run at most one active AI extraction job per local server and keep additional jobs queued.
+- Query-time search answers should use a separate answer runner with bounded parallelism instead of sharing the single extraction runner.
+- The answer runner should default to five concurrent answer jobs per local server, with additional answer jobs queued.
+- Stale search answer jobs should be cancelled when the user changes the query before the answer finishes.
+- AI search answer jobs should start only after explicit query submission, not on every keystroke.
+- Search answer cache entries may be reused only when the evidence-pack fingerprint and model config fingerprint match; cached answers are not memory and can be cleared from the Configs page.
+- AI extraction should produce structured search digests rather than raw OCR or transcript dumps, so content search can use cleaner, provenance-aware material.
+- The OpenAI model provider should use the latest `gpt-5.5` model for extraction and answer synthesis, with separate selected reasoning efforts so OpenWrite can use lower reasoning for bulk digestion and deeper reasoning for user-visible answers.
+- Search relevance should optimize for intent-aware discovery, fast results, transparent file provenance, and clean searchable digests rather than filename matching alone.
+- Search should use a hybrid ranking pipeline rather than a single filename, keyword, or vector-only index.
+- Embedding/vector retrieval belongs in the first slice as another ranking signal inside the vault memory index, not as a separate search architecture.
+- OpenWrite should use the OpenAI API only for embedding vectors in the first slice, defaulting to `text-embedding-3-small` and allowing `text-embedding-3-large` as a configurable higher-capability option.
+- OpenAI API keys must never be used for AI digestion or AI answer synthesis; those model calls require ChatGPT sign-in.
+- Embedding API credentials, model selection, and usage status should stay in app-local configuration outside the vault.
+- Users should be able to enter, replace, clear, and validate the OpenAI API key from the Search & Memory configs. OpenWrite may persist the key in app-local state, but API snapshots must expose only presence, source, and a masked suffix, never the raw key.
+- Search & Memory provider validation should actively check that the direct OpenAI model provider and OpenAI embedding provider are reachable and working, not only that they are configured.
+- Search & Memory should expose separate per-vault opt-in toggles for AI digestion, AI answers, and OpenAI embeddings because each integration sends different data through a different path.
+- Every submitted search chat query should run through at least a lightweight search retrieval loop. Search-mode turns usually stop after intent classification and one or two retrieval/refinement passes, while mixed and answer-mode turns may keep collecting context before final answer synthesis.
+- Search chat rendering should use both a search response mode and an evidence display mode. Answer-first turns usually show subtle evidence, mixed turns usually show inline evidence, and search-mode turns usually show primary evidence, but the backend classifier may override those defaults.
+- Search chat transcripts should persist durable search chat artifacts, not ephemeral search chat progress. Progress notes and intermediate retrieval-loop activity should make active turns feel alive without cluttering restored sessions.
+- Mobile search chat sessions should restore while activity is recent. After the 30-minute search chat inactivity timeout, OpenWrite should archive the session into hidden app-local history and show a fresh chat when the user returns.
+- Search chat sessions are UI continuity state in the first slice, not vault content and not part of the vault memory index. They should persist in browser-local storage rather than backend memory-index state.
+- Mobile evidence, source chips, files, and snippets should open inside the mobile source viewer rather than a separate browser tab or vault explorer surface.
+- The mobile experience should use mobile terminal-adjacent chrome across the shell, search chat, source viewer chrome, and settings, while preserving readable editor content typography inside the dark shell.
+- Embeddings should be generated at multiple bounded levels: source spans for precise retrieval, memory cards for deduplicated concept retrieval, and memory entity name/alias/context records for entity retrieval.
+- OpenWrite should not embed whole files as a single vector except for tiny files; long files should be chunked into source spans with provenance.
+- Embedding generation should wait for AI digestion to produce clean source spans and derived memory objects rather than embedding partial raw file content.
+- OpenAI embeddings require AI digestion to be enabled for the active vault because embedding vectors are generated from digested memory material.
+- OpenAI embeddings should use a separate embedding queue with batching, API rate-limit backoff, and queued/running/failed status independent from digestion and answer runners.
+- AI answers remain independently toggleable from AI digestion and OpenAI embeddings.
+- Search should use the configured model provider at query time to synthesize an answer from the user's query and OpenWrite-ranked search evidence.
+- Search evidence should be hidden by default and visible when the user opens the evidence toggle.
+- Search answers should include source chips for answer claims, and selecting a source chip should reveal the evidence toggle focused on that source.
+- Search answers should be evidence-bound: when evidence is weak, missing, or contradictory, the answer should say so rather than filling gaps from model knowledge.
+- Search answer synthesis should use a token-budgeted evidence pack that prioritizes strong matches, diversifies across files and source types, and sends snippets or digest sections rather than whole files unless a small file is strongly relevant.
+- When AI answer synthesis is inactive during search, OpenWrite should not fabricate a search answer; it should show the search inactive state and keep ranked evidence available through the evidence toggle.
+- Search should be the first product surface for the vault memory index; a dedicated Memory view is deferred until the index proves useful through search.
+- Search scopes should filter the same retrieval pipeline before evidence packing rather than creating separate search systems.
+- Mobile keyboard behavior should be owned by one shell-level layout contract. Individual mobile surfaces should not add ad hoc visual-viewport listeners, JavaScript offsets, transitions, animations, or scroll hacks; the clean-slate `/mobile` shell should own visible-viewport measurement, fixed header placement, the bottom composer, and the single scroll owner.
+- The supported phone experience should be redesigned as a mobile PWA with iOS-feel mobile chrome rather than a native Swift, React Native, or Expo app. The design must resolve install flow, keyboard ownership, distribution, server connection, and API boundaries before implementation resumes.
+- `/mobile` should use the mobile explicit route policy. OpenWrite should not auto-redirect small screens to `/mobile` in the first slice.
+- `/mobile` should use the mobile screen stack for first-slice full-screen source viewer and settings surfaces. Reloading `/mobile` restores the active browser-local chat session and starts from the chat screen.
+- `/mobile` should use mobile install metadata and the mobile conservative cache policy. The Home Screen shortcut should start at `/mobile`, while the desktop `/` manifest behavior remains intact.
+- The mobile PWA should live in the existing `frontend` package as a dedicated route and isolated shell module, not as a separate npm workspace, native app package, or responsive branch inside the desktop workspace.
+- The clean `/mobile` implementation should use the mobile module boundary under `frontend/src/mobile/`; desktop layout components, desktop workspace CSS, the editor surface, the page tree, and removed legacy mobile modules stay outside that tree.
+- The mobile PWA should be clean-slate code served from the same OpenWrite origin at `/mobile`; the legacy automatic mobile branch and its components must not be fixed, revived, or used as the base implementation.
+- If `/api/health` fails for the remembered server URL or same-origin server, `/mobile` should use the mobile connection state before any chat, source, settings update, provider validation, or search API call.
+- The first `/mobile` implementation should consume only the mobile PWA API boundary. Editor APIs, vault mutation APIs, page-tree mutation APIs, and collaboration/editing APIs remain outside the mobile first slice.
+- Mobile chat should use the mobile search stream adapter over the shared backend search chat stream contract. Mobile components should render adapter state rather than each implementing raw SSE event handling.
+- Mobile chat should follow the mobile active turn policy. The first slice should not queue multiple submitted queries from the same mobile session while a turn is streaming.
+- Mobile chat should follow the mobile evidence presentation policy. It should not classify query intent locally or infer evidence prominence from query text, answer length, evidence count, or file type.
+- Mobile session storage should follow the mobile session lifecycle. Meaningful activity includes query submit, turn completion, source open, settings open, Search & Memory settings edits, and provider validation from mobile settings.
+- Mobile Search & Memory settings should follow the mobile Search & Memory settings scope. The phone can complete setup and validation, but first-slice maintenance operations remain desktop-only.
+- When the OpenWrite server is reachable but Search & Memory setup is incomplete, `/mobile` should use the mobile setup-required chat state instead of a setup wizard, blank state, landing page, or queued fake search turn.
+- The first `/mobile` source viewer should use the mobile source preview policy and must not introduce a custom PDF renderer, custom canvas renderer, or heavyweight document engine.
+- Mobile search chat sessions should stay on-device in browser storage for the first slice. The server owns search/indexing/provider state; the mobile PWA owns active-session UI continuity, inactivity archival, and restored transcript display.
+- The `/mobile` route should use Ionic React in iOS mode for mobile app component primitives, while avoiding Ionic tab navigation and route-transition patterns in the first slice.
+- The `/mobile` route should begin as a mobile shell spike. Real search APIs, provider state, and file retrieval should not be wired until the shell proves the keyboard, viewport, bottom composer, single-scroll-owner, and full-screen navigation contracts through the mobile shell spike validation gate.
+- Each mobile screen should have exactly one mobile scroll owner. Headers, shell containers, composer inputs, and the document body should remain non-scrolling; search evidence scrolls inside the search chat log unless the user opens a source file full screen.
+- Re-indexing should be greedy and driven by file fingerprints. A changed accepted vault file becomes stale quickly; editable files wait for the short indexing quiet age, while non-editable files should update file-property index rows and queue AI digestion as soon as practical when the active vault has opted in.
+- OpenWrite should watch all accepted vault files recursively, including files edited outside OpenWrite's UI.
+- Deleted files should remove index rows and cancel queued or running extraction and answer work where possible.
+- Search results and evidence items should expose index freshness so users can tell when a file is digesting, stale, metadata-only, failed, unsupported, or fully indexed.
+- The Configs page should include a Search & Memory section for OpenAI model endpoint, ChatGPT sign-in, selected digestion and answer reasoning validation, OpenAI API key entry and validation for embeddings only, per-vault opt-in, extraction queue status, answer runner concurrency, index freshness counts, last scan, rescan, retry failed, clear answer cache, reset interaction signals, and rebuild memory index controls.
+- The header integration indicator should stay quiet when Search & Memory is healthy; normal healthy status belongs in Configs.
 
 ## First Slice
 
@@ -57,10 +233,41 @@ OpenWrite is a local-first, realtime Markdown-native note app for computer and m
 - Page docs backed by Yjs and Tiptap/ProseMirror while editing, with Markdown page files as the durable source.
 - Anonymous local presence with display name and color in browser storage.
 - Desktop shell and mobile shell selected at runtime, sharing sync/domain code.
+- Mobile PWA redesign for the supported phone search chat, source viewer, and Search & Memory settings experience. No supported mobile implementation is currently in the workspace after removal of the Expo/React Native spike.
+- Vault explorer over folders, pages, and accepted attachment files.
+- Vault memory index for content-based discovery and source-backed recall across accepted vault files.
+- Searchable file properties for all accepted vault files, with AI-produced search digests for all accepted vault files after the user opts in.
+- Configs page showing OpenAI model endpoint, ChatGPT sign-in, selected model validation, and extraction queue status.
+- Header integration indicator for Search & Memory states that need user attention.
+- Extraction status tracking for accepted vault files, including unsupported and failed outcomes.
+- Persistent extraction queue that survives local server restarts and resumes when AI digestion is active.
+- Structured search digests for accepted vault files, stored outside the vault as derived index state.
+- App-local hybrid search using a lexical search index with BM25-style ranking, structured digest fields, metadata signals, snippets, and rank fusion.
+- AI-generated search answers based on the query and ranked search evidence, with the underlying evidence available through a user-controlled toggle.
+- Inline source chips for search answer claims, backed by ranked search evidence.
+- Evidence-bound answer schema with answer text, confidence, limitations, and source references.
+- Token-budgeted evidence pack construction for AI search answers.
+- Search scopes for All, Pages, Files, Images/PDFs, and the current folder/subtree.
+- Search inactive state with a route to the Configs page when AI answering is disabled, unavailable, or otherwise inactive.
+- Separate answer runner with bounded parallelism for query-time answer jobs.
+- Default answer runner concurrency of five jobs per local server, configurable from the Configs page.
+- Explicit-submit AI answer generation, with optional instant local suggestions before submission.
+- Disposable app-local search answer cache keyed by evidence-pack and model config fingerprints.
+- Search & Memory section on the Configs page with separate per-vault toggles for AI digestion, AI answers, and OpenAI embeddings, plus OpenAI model provider status, ChatGPT sign-in status, provider validation, selected task reasoning settings, OpenAI API key status for embeddings, index status, queue status, runner settings, and reset/rebuild controls.
+- OpenAI embedding provider configuration in Search & Memory, including API key entry, masked API key status, validation, selected embedding model, embedding queue/status, and embedding rebuild control.
+- Persistent embedding queue with batching, rate-limit backoff, and independent status reporting.
+- Recursive vault watching for all accepted vault files, including external edits.
+- Greedy file-fingerprint invalidation with a short indexing quiet age only for editable vault files.
+- Index freshness indicators on search results and evidence items.
+- Source-backed memory cards, entities, relationships, and events as part of the vault memory index.
+- Derived read-only memory objects with provenance back to source spans.
+- Conservative concept deduplication with aliases and possible duplicate relationships.
+- Explainable memory importance scoring for ranking and evidence-pack construction.
+- Private app-local interaction signals that can influence ranking and be reset from the Configs page.
 
 ## Deferred
 
 - User accounts, permissions, passcodes, invite links, and internet sync.
 - Long-term guaranteed offline edits per device.
-- Tables, databases, embeds, backlinks, import/export, and full-text search.
+- Backlinks, import/export, and a dedicated Memory view.
 - Arbitrary block nesting beyond toggle-list children.

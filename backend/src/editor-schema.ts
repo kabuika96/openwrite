@@ -1,11 +1,13 @@
 import { getSchema } from "@tiptap/core";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import Link from "@tiptap/extension-link";
+import { TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
 import { FileBlock } from "./file-block-extension.js";
 import { ImageBlock } from "./image-block-extension.js";
+import { OpenWriteTable } from "./table-block-extension.js";
 import { WikiLink } from "./wiki-link-extension.js";
 
 let schema;
@@ -36,6 +38,10 @@ export function getOpenWriteEditorSchema() {
       }),
       DetailsSummary,
       DetailsContent,
+      OpenWriteTable,
+      TableRow,
+      TableHeader,
+      TableCell,
       ImageBlock,
       FileBlock,
     ]);

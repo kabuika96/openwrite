@@ -1,15 +1,17 @@
-import { ChevronDown, Copy, FolderOpen, RotateCcw } from "lucide-react";
+import { ChevronDown, Copy, FolderOpen, RotateCcw, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SearchMemoryStatusIndicator } from "../search/SearchMemoryStatusIndicator";
 import type { PageTreeController } from "../sync/usePageTree";
 import { getVaultAccessContext } from "./vaultAccessContext";
 
 type VaultProfileMenuProps = {
   pageCount: number;
   pageTree: PageTreeController;
+  onOpenConfigs: () => void;
   onOpenVaultManager: () => void;
 };
 
-export function VaultProfileMenu({ pageCount, pageTree, onOpenVaultManager }: VaultProfileMenuProps) {
+export function VaultProfileMenu({ pageCount, pageTree, onOpenConfigs, onOpenVaultManager }: VaultProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -60,8 +62,14 @@ export function VaultProfileMenu({ pageCount, pageTree, onOpenVaultManager }: Va
     onOpenVaultManager();
   }
 
+  function openConfigs() {
+    setOpen(false);
+    onOpenConfigs();
+  }
+
   return (
     <div className="vault-profile" ref={menuRef}>
+      <SearchMemoryStatusIndicator onOpenConfigs={onOpenConfigs} />
       <button
         type="button"
         className="vault-profile-button"
@@ -73,7 +81,7 @@ export function VaultProfileMenu({ pageCount, pageTree, onOpenVaultManager }: Va
         }}
       >
         <span className="app-logo vault-profile-logo" aria-hidden="true">
-          🦉
+          🐒
         </span>
         <span className="vault-profile-copy">
           <span className="vault-profile-name">{vaultName}</span>
@@ -98,6 +106,10 @@ export function VaultProfileMenu({ pageCount, pageTree, onOpenVaultManager }: Va
           <button type="button" role="menuitem" onClick={openVaultManager}>
             <RotateCcw aria-hidden="true" size={15} />
             Switch vault...
+          </button>
+          <button type="button" role="menuitem" onClick={openConfigs}>
+            <Settings aria-hidden="true" size={15} />
+            Search & Memory...
           </button>
         </div>
       ) : null}

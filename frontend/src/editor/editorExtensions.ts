@@ -11,6 +11,7 @@ import type { FlatPage } from "../sync/pageTree";
 import type { LocalUser } from "../types";
 import { FileBlock } from "./FileBlock";
 import { ImageBlock } from "./ImageBlock";
+import { OpenWriteTable, OpenWriteTableCell, OpenWriteTableHeader, OpenWriteTableRow, OpenWriteTableValidation } from "./TableBlock";
 import { WikiLink } from "./WikiLink";
 import { renderDetailsToggleButton } from "./detailsToggleButton";
 import { SlashCommandExtension, type SlashMenuState } from "./slashCommandExtension";
@@ -61,6 +62,13 @@ export function createOpenWriteEditorExtensions({
     }),
     DetailsSummary,
     DetailsContent,
+    OpenWriteTable,
+    OpenWriteTableRow,
+    OpenWriteTableHeader,
+    OpenWriteTableCell,
+    OpenWriteTableValidation.configure({
+      getPages,
+    }),
     ImageBlock,
     FileBlock,
     Placeholder.configure({

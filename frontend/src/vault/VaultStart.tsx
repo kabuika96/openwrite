@@ -54,7 +54,7 @@ export function VaultStart({ defaultParentPath, error, onCancel, onCreateVault, 
           <div>
             <strong>
               <span className="app-logo" aria-hidden="true">
-                🦉
+                🐒
               </span>
               OpenWrite
             </strong>
