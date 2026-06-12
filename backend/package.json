@@ -14,19 +14,19 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@hocuspocus/server": "^4.0.0",
+    "@hocuspocus/server": "^4.2.0",
     "@tiptap/core": "^3.22.5",
-    "@tiptap/extension-details": "^3.22.5",
-    "@tiptap/extension-link": "^3.22.5",
-    "@tiptap/extension-task-item": "^3.22.5",
-    "@tiptap/extension-task-list": "^3.22.5",
-    "@tiptap/starter-kit": "^3.22.5",
+    "@tiptap/extension-details": "^3.26.1",
+    "@tiptap/extension-link": "^3.26.1",
+    "@tiptap/extension-task-item": "^3.26.1",
+    "@tiptap/extension-task-list": "^3.26.1",
+    "@tiptap/starter-kit": "^3.26.1",
     "@tiptap/y-tiptap": "^3.0.3",
-    "yjs": "^13.6.27"
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
-    "@types/node": "^24.10.2",
-    "tsx": "^4.20.6",
+    "@types/node": "^24.13.2",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3"
   }
 }
