@@ -18,13 +18,13 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
 - The first-slice API boundary is narrow: health, search chat streaming, source file retrieval, Search & Memory settings snapshot/update, provider validation, and ChatGPT sign-in.
 - Mobile Search & Memory settings should be self-sufficient for setup but should not expose heavy maintenance/rebuild controls in the first slice.
 - Mobile chat should consume the shared backend search stream contract through a mobile presentation adapter, not invent a separate mobile stream protocol.
-- Mobile supports one active streaming turn per session in the first slice. A second submitted query is not queued while a turn is running.
+- Mobile supports one active streaming turn per session in the first slice. A second submitted query is not queued; it aborts the running turn and takes over immediately.
 - Mobile evidence presentation should follow backend-provided `responseMode` and `evidenceDisplay` values. Mobile should not infer evidence visibility from query text, answer length, or local evidence count.
 - Evidence, source chips, files, and snippets must open in a full-screen mobile source viewer with an explicit back action.
 - The source viewer should render text and Markdown as readable text, images inline, audio and video with native browser controls, PDFs through the browser's native viewer, and canvas or unknown files as metadata, snippet, and an open-original action.
 - Full-screen mobile source and settings surfaces should be owned by a local shell screen stack in the first slice, not by URL-addressable nested routes.
 - Sessions should behave like an active ChatGPT-style conversation, with hidden inactivity archive and no visible history list in the first slice.
-- Chat sessions should stay on-device in browser storage for the first slice: active session, recent activity timestamp, user messages, final answers, evidence references, errors, and hidden archived sessions.
+- Chat sessions should stay on-device in browser storage for the first slice: active session, recent activity timestamp, user messages, final rendered answer payloads, evidence references, errors, and hidden archived sessions.
 - The mobile session inactivity timeout is 30 minutes and is checked on boot, reload, foreground/focus, visibility changes, and before starting a new search turn.
 - When the OpenWrite server is reachable but Search & Memory setup is incomplete, `/mobile` should still show the chat shell, with submitting disabled and a compact setup-required entry point into full-screen mobile settings.
 - Keyboard behavior, safe areas, and Home Screen install are core architecture constraints, not polish tasks.
@@ -43,7 +43,7 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
 - Keep backend API ownership in OpenWrite. The mobile PWA consumes typed HTTP/SSE APIs and should not duplicate search ranking or provider logic.
 - Keep the backend search SSE event contract canonical. Mobile maps stream events into mobile chat presentation state instead of coupling components directly to raw event handling.
 - Keep response-mode and evidence-display decisions backend-owned. Mobile fallback defaults are allowed only when older or malformed stream events omit those values.
-- When a search turn is streaming, the mobile composer should become a stop/cancel control and should not accept a second queued query.
+- When a search turn is streaming, the mobile composer should show stop/cancel only while the draft is empty. If the user types a new message, the send control submits it immediately, aborts the running turn, and starts the replacement.
 - Keep editor APIs, vault mutation APIs, page-tree mutation APIs, and collaboration/editing APIs out of the mobile first slice.
 - Do not persist mobile chat sessions to the server or the vault in the first slice.
 - Do not show visible session history in the first slice. Expired sessions are archived only as hidden browser-local history.
@@ -74,8 +74,8 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
 12. Install metadata and caching: `/mobile` gets dedicated PWA install metadata and starts at `/mobile`. The first-slice service worker policy stays conservative: no explicit caching of private vault data, source files, search results, provider state, API responses, or SSE/chat streams.
 13. Setup-required first run: when the OpenWrite server is reachable but Search & Memory setup is incomplete, show the chat shell immediately, keep the header attention indicator visible, disable query submission, show a compact inline setup-required row above the composer, and open full-screen Search & Memory settings as the primary action. Do not replace the shell with a setup wizard.
 14. Full-screen navigation: source viewer and settings use a shell-owned local screen stack in the first slice. The canonical URL remains `/mobile`; opening a full-screen surface may push a lightweight browser history entry so Back closes the surface, but source/settings are not URL-addressable subroutes yet.
-15. Search stream presentation: reuse the shared backend search SSE stream contract, but place a mobile presentation adapter in `frontend/src/mobile/chat/`. The adapter maps stream events into mobile chat turn state, progress notes, response/evidence display modes, evidence visibility, answer deltas, source chips, errors, completion, and durable transcript artifacts. The shell spike should simulate adapter output rather than raw backend events.
-16. Active turn policy: mobile allows one active search turn per chat session. While a turn streams, the composer becomes a stop/cancel control with input disabled. Cancelling aborts the stream, marks the partial turn as cancelled, and does not persist it as a durable transcript artifact unless a final `turn.done` already arrived. Do not queue multiple mobile queries from the same session in the first slice.
+15. Search stream presentation: reuse the shared backend search SSE stream contract, but place a mobile presentation adapter in `frontend/src/mobile/chat/`. The adapter maps stream events into mobile chat turn state, progress notes, response/evidence display modes, evidence visibility, rendered answer deltas, source chips, errors, completion, and durable transcript artifacts. The shell spike should simulate adapter output rather than raw backend events.
+16. Active turn policy: mobile allows one active search turn per chat session. While a turn streams, an empty composer shows stop/cancel; a typed new message can be submitted and replaces the active turn. Replacement aborts the stream, marks the partial turn as cancelled, ignores late events from the aborted stream, and does not persist the cancelled artifact unless a final `turn.done` already arrived. Do not queue multiple mobile queries from the same session in the first slice.
 17. Evidence presentation: mobile uses backend-provided `responseMode` and `evidenceDisplay` from the search stream. If missing, fallback defaults are answer turns -> subtle evidence, mixed turns -> compact inline evidence, and search turns -> primary evidence. Every evidence/source entry remains clickable into the full-screen source viewer.
 18. Session lifecycle: use the 30-minute search chat inactivity timeout across boot, reload, `visibilitychange`, focus, Home Screen return, and before starting a new turn. Activity updates on user submit, turn completion, source open, settings open, and settings edit. If expired, archive the active session into hidden browser-local history and start a fresh chat. Do not show visible session history in the first slice.
 19. Mobile settings scope: mobile Search & Memory settings are self-sufficient for initial setup and validation. Editable on mobile: ChatGPT sign-in, OpenAI API key for embeddings only, provider validation, per-vault toggles for AI digestion, AI answers, and embeddings, digestion and answer reasoning selects, embedding model select, and answer concurrency. Read-only on mobile: queue status, freshness counts, model/provider status, last scan, masked key status, and token status. Desktop-only first-slice maintenance controls: rescan, retry failed, clear answer cache, reset interaction signals, rebuild embeddings, and rebuild memory index.
@@ -109,7 +109,7 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
    - Verification: the shell renders with dummy content and exposes diagnostics in development.
 
 5. Build the dummy streaming chat surface.
-   - Create `frontend/src/mobile/chat/` with dummy adapter-state transitions that simulate progress notes, answer deltas, evidence modes, source chips, completion, cancellation, and errors.
+   - Create `frontend/src/mobile/chat/` with dummy adapter-state transitions that simulate progress notes, rendered answer deltas, evidence modes, source chips, completion, cancellation, and errors.
    - Implement the one-active-turn policy against dummy streams.
    - Keep the composer layout stable while switching between input and stop/cancel state.
    - Verification: dummy turns stream, cancel, complete, and leave no durable cancelled artifacts.
@@ -206,9 +206,9 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
 ## Mobile Active Turn Policy
 
 - A mobile search chat session has at most one active streaming turn.
-- While a turn is active, the composer preserves layout but changes to a stop/cancel affordance and disables text submission.
-- Submitting another query while a turn is active is not allowed and is not queued.
-- Cancelling the active turn aborts the stream request through the mobile API/client layer.
+- While a turn is active, the composer preserves layout; empty draft shows stop/cancel, and non-empty draft shows send.
+- Submitting another query while a turn is active aborts and replaces the active turn. It is not queued.
+- Cancelling the active turn aborts the stream request through the mobile API/client layer, and late events from the aborted request are ignored.
 - A cancelled partial turn remains ephemeral UI state and is not promoted into browser-local durable transcript storage.
 - If the stream has already emitted final `turn.done`, the completed durable artifact is preserved even if the user taps stop during cleanup.
 - After cancellation or completion, the composer returns to normal input state.
@@ -217,14 +217,84 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
 ## Mobile Search Stream Presentation
 
 - The backend search chat stream remains the canonical protocol for search turns.
-- Mobile uses the shared typed stream client where practical, including the existing event types for turn creation, progress, retrieval, intent, answer deltas, answer completion, turn completion, and turn errors.
+- Mobile uses the shared typed stream client where practical, including the event types for turn creation, progress, retrieval, intent, safe model reasoning summaries, `renderedAnswer.delta`, `renderedAnswer.done`, captured answer interactions, turn completion, and turn errors. It buffers rendered answer document deltas and mounts the fragment atomically when complete.
 - `frontend/src/mobile/chat/` owns a presentation adapter that converts stream events into mobile-friendly state.
-- The adapter owns mobile turn state such as in-flight status, progress note list, answer draft, final answer, response mode, evidence display mode, evidence references, focused source chip, error state, and completion.
-- Progress notes and intermediate retrieval activity are ephemeral UI state unless the final `turn.done` event promotes data into a durable transcript artifact.
-- Final answers, response/evidence display modes, final evidence references, source chips, and errors become browser-local durable chat artifacts through the mobile storage module.
+- The adapter owns mobile turn state such as in-flight status, progress note list, rendered answer document draft, final rendered answer document, response mode, evidence display mode, evidence references, focused source chip, captured interactions, error state, and completion.
+- Progress notes, provider-supported reasoning summary chips, and intermediate retrieval activity are ephemeral UI state unless the final `turn.done` event promotes data into a durable transcript artifact. Raw chain-of-thought is not a user-visible stream source. During active answer synthesis, mobile presents one live reasoning chip; provider reasoning summaries replace synthetic answer-build progress when available so the chip does not stay stuck on older parallel work.
+- Final opaque rendered answer payloads, response/evidence display modes, final machine-readable evidence references, source affordances, captured answer interactions, and errors become browser-local durable chat artifacts through the mobile storage module.
+- The canonical final answer object should carry `renderedAnswerPayload`, source refs, confidence, and limitations, without a separate user-facing plain answer field.
+- The backend stream should name opaque HTML payload events `renderedAnswer.delta` and `renderedAnswer.done`, not `answer.delta` or `answer.done`, so the mobile adapter buffers chunks instead of treating them as plain text. `renderedAnswer.done` is authoritative and includes the full `renderedAnswerPayload` even when deltas were already sent.
+- `turn.done` should intentionally duplicate the final rendered answer object inside the complete search result, so mobile storage, cache writes, tests, and non-streaming clients do not need to reconstruct final state from prior stream events.
+- Cached answer hits remount the cached opaque rendered answer payload with stored provenance refs, response mode, and evidence display mode rather than regenerating a visually different fragment for unchanged evidence and model config.
+- The backend search answer contract should produce opaque rendered answer payloads as the canonical answer format across OpenWrite. Mobile implements the rendered answer host first; desktop should not require a separate answer generation format even if it initially renders a simpler fallback.
+- Search-mode turns still render an opaque answer payload when AI answers are active. `responseMode: "search"` and `evidenceDisplay: "primary"` are intent and shell evidence signals, not instructions that the generated fragment must be evidence-first.
+- Rendered answer prompt guidance should stay open-ended for every mode: no fixed answer layout, no evidence-first rule, no source-chip placement rule, no citation/list requirement, and no prose-first bias. The model decides the most useful rendering.
+- Final answers are disposable rendered answer documents, not full pages or long-lived mini-apps. Each completed search chat turn owns one generated embeddable HTML fragment, and the next user turn asks the model to produce a fresh fragment rather than patching the prior one.
+- Partial rendered answer HTML and JavaScript should not be progressively mounted. While the fragment is being generated, mobile continues to show streamed progress notes and mounts the rendered answer only after `renderedAnswer.done`.
+- The rendered answer document may use HTML, CSS, JavaScript, simple graphics, color, and interaction affordances when that makes the answer more useful than prose alone.
+- Rendered answer styling should be biased toward OpenWrite's black, restrained terminal-adjacent mobile theme so answers do not feel out of place in the chat. The model should prefer less text when possible and may use colors, emojis, images, diagrams, charts, icons, graphics, rich media, and richer visual treatments when the query benefits from them.
+- Rendered answer prompts should pass a compact OpenWrite theme context: black background, high-contrast text, compact spacing, system typography, hierarchy clarity, simple organization, minimal chrome, and a default preference against card-heavy layouts, boxed sections, visible outlines, and bordered button chrome.
+- Rendered answer prompts should ask for semantic HTML, readable contrast, touch-friendly controls, labels for interactive elements, and non-hover interaction paths. Mobile does not need a strict accessibility validator for generated fragments in the first slice.
+- The rendered answer prompt should explicitly instruct the model to return an embeddable fragment, not a full HTML document. Mobile may reject full-document payloads that include `html`, `head`, or `body` ownership.
+- Mobile should otherwise be permissive: do not sanitize away generated HTML/CSS/JS, external network resources, or larger generated UI by default.
+- Generated fragments may fetch external assets or data as enrichment, but the core answer content must come from the evidence pack and be present in the generated fragment so vault answers do not depend on external requests.
+- Generated fragments may load third-party client libraries from CDNs for specialized visuals or interactions, but prompts should prefer vanilla HTML/CSS/JS unless a library materially improves the answer.
+- Generated fragments may use audio, video, canvas, WebGL, and similar rich media when useful. The mobile rendered answer host should clean up generated media, timers, listeners, and animation loops on unmount.
+- Mobile renders opaque answer payload fragments inside a trusted chat host with a per-turn iframe containment boundary, so generated answer UI can participate richly in the chat surface without becoming unbounded app markup. The mobile host owns mounting, sizing, cleanup, page-level chrome, and source/evidence plumbing.
+- Mobile exposes a small rendered answer bridge to generated answer fragments for durable app actions such as `OpenWrite.submitTurn(prompt)`, `OpenWrite.openSource(sourceRef)`, and `OpenWrite.showEvidence(options)`.
+- Mobile should expose a versioned `OpenWrite.capabilities` object to generated fragments and include the same capability contract in the rendered answer prompt, so the model knows which bridge actions and submit-turn features are available.
+- Mobile should support direct script execution in generated fragments and also expose optional lifecycle hooks such as `OpenWrite.onMount` and `OpenWrite.onUnmount` for initialization and cleanup.
+- Bridge actions require explicit user gestures. Generated fragments should wire `OpenWrite.submitTurn`, `OpenWrite.openSource`, and `OpenWrite.showEvidence` to user-initiated controls rather than calling them during initial render, lifecycle mount, timers, or async setup.
+- The mobile rendered answer host should capture generated JavaScript errors and unhandled promise rejections as turn metadata, optionally show a nonintrusive answer interaction error, and keep the chat shell running.
+- `OpenWrite.openSource` supports both a source-ref string shorthand and object form such as `OpenWrite.openSource({ sourceRef, focusText, highlight })`.
+- `OpenWrite.showEvidence` is separate from `openSource` and supports simple and focused forms, such as `OpenWrite.showEvidence()` and `OpenWrite.showEvidence({ focus: sourceRef })`.
+- Rendered answer bridge actions return Promises so generated fragments can show pending, success, cancellation, and error states around app-level actions.
+- `OpenWrite.submitTurn` follows the mobile one-active-turn policy and replaces any currently streaming turn. `OpenWrite.openSource` and `OpenWrite.showEvidence` remain available during active turns.
+- The rendered answer bridge exposes app actions, not raw vault APIs. Generated answer JavaScript should not receive direct access to source file contents, provider state, settings, local storage helpers, or vault mutation APIs.
+- Generated fragments may submit model-authored hidden prompts through `OpenWrite.submitTurn(prompt)`. The prompt does not need to match visible button text, and the rendered answer prompt should tell the model this capability exists.
+- `OpenWrite.submitTurn` supports both string shorthand and object form: `OpenWrite.submitTurn("Explain this differently")` or `OpenWrite.submitTurn({ label, prompt, modeHint, sourceRefs })`.
+- For hidden prompt submissions, mobile shows the rendered answer action label in the chat transcript and stores the hidden prompt as turn metadata for the model call.
+- Generated fragments may include forms and local controls such as text inputs, sliders, checkboxes, and dates, then fold those values into a hidden prompt submitted through the bridge.
+- Bridge submissions may include turn hints such as desired response mode or source refs, but the backend remains responsible for final intent classification and evidence selection.
+- Follow-up turns from rendered answer interactions should send broad prior-turn context to the model, including visible action label, hidden prompt, form values, prior rendered payload, prior query, prior source refs, response metadata, and relevant transcript context when available. The model decides what to reuse, ignore, redesign, or expand in the next fresh fragment.
+- If generated JavaScript errors were captured, mobile includes an error summary in the next user-triggered follow-up context so the model can recover. Errors do not automatically trigger repair turns.
+- Mobile should accept rendered answer bridge calls only from explicit user gestures, while still allowing generated fragments to run local setup, animation, fetching, and rendering code on load.
+- Generated fragments may render their own citation UI, but mobile keeps final source refs outside the opaque payload for source viewing, evidence display, caching, tests, and restored transcript integrity.
+- Generated fragments may keep ephemeral UI state such as tabs, filters, expanded sections, chart hovers, animation state, and temporary control values. Durable meaning must become a captured turn through the rendered answer bridge rather than hidden fragment-local persistence.
+- Interactions inside a rendered answer document are captured as user turns by the shell or adapter. The document should be designed as disposable UI for that turn; follow-up interaction asks OpenWrite for a new turn rather than patching the old document as durable state.
+- Restored sessions remount stored opaque answer payloads in the rendered answer host and let generated JavaScript initialize again. Fragment-local UI state resets on restore unless the interaction became a captured turn.
 - Mobile components render adapter state; they should not each implement raw SSE event handling.
 - The shell spike should simulate adapter state transitions so layout, streaming feel, and source/settings navigation are validated before real search APIs are wired.
 - The adapter must not reinterpret ranking, classify query intent locally, synthesize answers, or fabricate fallback content when the provider is inactive.
+
+## Rendered Answer Validation Focus
+
+- Tests should focus on host and protocol behavior rather than generated HTML creativity.
+- Verify `renderedAnswer.delta` chunks are buffered and not mounted.
+- Verify `renderedAnswer.done` mounts the opaque fragment atomically and is authoritative.
+- Verify `turn.done` is self-contained and includes the final rendered answer object.
+- Verify the containment boundary prevents generated styles from leaking into the chat shell.
+- Verify bridge actions return Promises and resolve or reject predictably.
+- Verify bridge actions that mutate chat state require explicit user gestures.
+- Verify hidden prompt submissions show the action label in the transcript and store hidden prompt metadata.
+- Verify source refs are stored outside the opaque payload and still drive source/evidence actions.
+- Verify generated JavaScript errors and unhandled promise rejections are captured as turn metadata.
+- Verify restored sessions remount payloads and rerun generated JavaScript.
+- Verify `OpenWrite.onUnmount` cleanup hooks run when a rendered answer turn unmounts.
+- Use generated HTML fixtures for smoke coverage, but do not over-specify model visual output.
+
+## Rendered Answer Implementation Slice
+
+- Implement the rendered answer contract as the next vertical development slice before further answer UI polish.
+- Update shared search types so the canonical answer object uses `renderedAnswerPayload`, source refs, confidence, and limitations without a separate user-facing plain answer field.
+- Rename stream events from `answer.delta` and `answer.done` to `renderedAnswer.delta` and `renderedAnswer.done`.
+- Make `renderedAnswer.done` authoritative and self-contained, and make `turn.done` duplicate the final rendered answer object inside the complete result.
+- Update backend answer prompting with the embeddable-fragment contract, OpenWrite theme context, accessibility guidance, bridge capabilities, evidence grounding, and permissive enrichment rules.
+- Update answer cache reads and writes to store and remount opaque rendered answer payloads with machine-readable provenance refs.
+- Update the mobile stream adapter to buffer rendered answer deltas, mount only after `renderedAnswer.done`, and persist durable rendered answer artifacts.
+- Build the rendered answer host with per-turn containment, bridge actions, lifecycle hooks, gesture gating, promise-returning actions, runtime error capture, and cleanup.
+- Update restored-session behavior so stored payloads remount and generated JavaScript initializes again.
+- Cover the slice with host/protocol tests before spending time on generated answer visual polish.
 
 ## Mobile Screen Stack
 
@@ -251,7 +321,7 @@ Ready for shell-spike implementation. The previous Expo/React Native implementat
 - Keep the existing desktop/front-end manifest behavior for `/` rather than changing the global app start URL to `/mobile`.
 - Let the mobile route own route-specific document metadata where needed, including the active manifest link, theme color, app-capable tags, status-bar style, and title.
 - Keep service-worker behavior minimal in the first slice. A navigation fallback for `/mobile` is acceptable if needed for installed-app reloads.
-- Do not explicitly cache search results, answer text, source files, snippets, provider validation state, ChatGPT sign-in state, local API responses, or streaming/SSE responses.
+- Do not explicitly cache search results, rendered answer payloads, source files, snippets, provider validation state, ChatGPT sign-in state, local API responses, or streaming/SSE responses through the mobile service worker.
 - Treat offline mobile vault sync and offline search as deferred features, not implied by Home Screen installation.
 
 ## Mobile Module Boundaries
@@ -300,8 +370,8 @@ Reasoning:
 - The setup-required state keeps first run search-first while making the blocking Search & Memory setup path obvious and full-screen when the user asks for it.
 - Simple source previews preserve provenance without delaying the mobile slice on custom PDF/canvas/document-rendering work.
 - A local screen stack keeps Back behavior and full-screen surfaces predictable without making source/settings deep-link contracts before the first mobile search experience is proven.
-- A mobile presentation adapter keeps the backend stream canonical while letting mobile own how streaming progress, answer deltas, evidence, and source entry points feel in the chat shell.
-- One active turn keeps mobile interaction predictable and avoids unclear queue semantics while the first search/chat experience is being proven.
+- A mobile presentation adapter keeps the backend stream canonical while letting mobile own how streaming progress, rendered answer deltas, evidence, and source entry points feel in the chat shell.
+- One active turn keeps mobile interaction predictable and avoids unclear queue semantics: the latest submitted message wins, and older pending work is cancelled.
 - Backend-directed evidence presentation keeps mobile from inventing a separate intent classifier while still making search-mode evidence feel first class.
 - The inactivity lifecycle keeps returning users in the same chat while the session is fresh, but avoids a visible history product before the first mobile search experience proves itself.
 - Mobile settings are broad enough to make the phone setup self-sufficient, while rebuild/reset maintenance stays desktop-only to keep the first phone surface focused.

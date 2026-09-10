@@ -81,7 +81,7 @@ export function VaultProfileMenu({ pageCount, pageTree, onOpenConfigs, onOpenVau
         }}
       >
         <span className="app-logo vault-profile-logo" aria-hidden="true">
-          🐒
+          🌼
         </span>
         <span className="vault-profile-copy">
           <span className="vault-profile-name">{vaultName}</span>

@@ -64,7 +64,8 @@ ChatGPT sign-in token resolution:
 1. `OPENWRITE_CHATGPT_TOKEN` or `OPENWRITE_OPENAI_MODEL_TOKEN` for local token handoff during development and tests.
 2. `OPENWRITE_CHATGPT_AUTH_STORE` when pointing at an explicit OpenWrite or Hermes/OpenAI Codex-style auth store.
 3. `~/.openwrite/chatgpt-auth.json`, written by the Search & Memory ChatGPT sign-in action.
-4. `$HERMES_HOME/auth.json`, then `~/.hermes/auth.json`, using the `openai-codex` ChatGPT sign-in tokens.
+4. `$CODEX_HOME/auth.json`, then `~/.codex/auth.json`, using the local Codex ChatGPT sign-in token.
+5. `$HERMES_HOME/auth.json`, then `~/.hermes/auth.json`, using the `openai-codex` ChatGPT sign-in tokens.
 
 Defaults:
 

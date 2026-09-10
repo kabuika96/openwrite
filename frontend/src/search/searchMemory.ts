@@ -151,10 +151,10 @@ export type SearchMemoryEvidence = {
 };
 
 export type SearchMemoryAnswer = {
-  answer: string;
   cached?: boolean;
   confidence: "high" | "low" | "medium";
   limitations: string[];
+  renderedAnswerPayload: string;
   sourceRefs: string[];
 };
 
@@ -175,24 +175,52 @@ export type SearchResponseMode = "answer" | "mixed" | "search";
 
 export type EvidenceDisplayMode = "inline" | "primary" | "subtle";
 
+export type SearchMemoryConversationTurn = {
+  error?: string | null;
+  evidenceDisplay?: EvidenceDisplayMode | null;
+  hiddenPrompt?: string | null;
+  query?: string | null;
+  renderedAnswerPayload?: string | null;
+  resourcesSummary?: string | null;
+  responseMode?: SearchResponseMode | null;
+  sourceRefs?: string[];
+};
+
+export type SearchMemoryChatInput = {
+  folderPath?: string;
+  query: string;
+  scope: SearchMemoryScope;
+  turns?: SearchMemoryConversationTurn[];
+};
+
 export type SearchChatStreamEvent =
   | { createdAt: string; query: string; scope: SearchMemoryScope; turnId: string; type: "turn.created" }
-  | { message: string; type: "progress" }
+  | {
+      at?: string;
+      id?: string;
+      message: string;
+      parallelGroup?: string;
+      phase?: "answer" | "answer-reasoning" | "answer-summary" | "intent" | "retrieval";
+      status?: "done" | "running";
+      type: "progress";
+    }
   | { query: string; type: "retrieval.started" }
   | { evidence: SearchMemoryEvidence[]; evidenceFingerprint: string; type: "retrieval.evidence" }
   | { type: "intent.started" }
   | {
+      discardSourceRefs?: string[];
       evidenceDisplay: EvidenceDisplayMode;
       evidenceSummary: string;
       followUpQueries: string[];
       progressNotes: string[];
+      readSourceRefs?: string[];
       reason: string;
       responseMode: SearchResponseMode;
       type: "intent.done";
     }
-  | { type: "answer.started" }
-  | { delta: string; type: "answer.delta" }
-  | { answer: SearchMemoryAnswer; type: "answer.done" }
+  | { type: "renderedAnswer.started" }
+  | { delta: string; type: "renderedAnswer.delta" }
+  | (SearchMemoryAnswer & { type: "renderedAnswer.done" })
   | {
       result: SearchMemoryResult & {
         evidenceDisplay: EvidenceDisplayMode;
@@ -246,7 +274,7 @@ export async function pollChatGptLogin(session: Pick<ChatGptLoginSession, "devic
   });
 }
 
-export async function searchVaultMemory(input: { folderPath?: string; query: string; scope: SearchMemoryScope }) {
+export async function searchVaultMemory(input: SearchMemoryChatInput) {
   return requestJson<SearchMemoryResult>("/api/search-memory/search", {
     body: JSON.stringify(input),
     headers: { "content-type": "application/json" },
@@ -255,7 +283,7 @@ export async function searchVaultMemory(input: { folderPath?: string; query: str
 }
 
 export async function streamSearchMemoryChat(
-  input: { folderPath?: string; query: string; scope: SearchMemoryScope },
+  input: SearchMemoryChatInput,
   onEvent: (event: SearchChatStreamEvent) => void,
   signal?: AbortSignal,
 ) {

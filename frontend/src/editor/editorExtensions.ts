@@ -11,6 +11,7 @@ import type { FlatPage } from "../sync/pageTree";
 import type { LocalUser } from "../types";
 import { FileBlock } from "./FileBlock";
 import { ImageBlock } from "./ImageBlock";
+import { OpenWriteCodeBlock } from "./MermaidCodeBlock";
 import { OpenWriteTable, OpenWriteTableCell, OpenWriteTableHeader, OpenWriteTableRow, OpenWriteTableValidation } from "./TableBlock";
 import { WikiLink } from "./WikiLink";
 import { renderDetailsToggleButton } from "./detailsToggleButton";
@@ -39,9 +40,11 @@ export function createOpenWriteEditorExtensions({
 }: EditorExtensionOptions) {
   return [
     StarterKit.configure({
+      codeBlock: false,
       link: false,
       undoRedo: false,
     }),
+    OpenWriteCodeBlock,
     Link.configure({
       autolink: false,
       defaultProtocol: "https",

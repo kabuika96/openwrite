@@ -3,8 +3,8 @@
   "short_name": "OpenWrite",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7f4ec",
-  "theme_color": "#f7f4ec",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "icons": [
     {
       "src": "/pwa.svg",
@@ -14,4 +14,3 @@
     }
   ]
 }
-

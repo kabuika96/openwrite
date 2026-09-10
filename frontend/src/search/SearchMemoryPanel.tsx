@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { RenderedAnswerHost, type RenderedAnswerSubmitTurn } from "./RenderedAnswerHost";
 import { searchVaultMemory, type SearchMemoryEvidence, type SearchMemoryResult, type SearchMemoryScope } from "./searchMemory";
 
 type SearchMemoryPanelProps = {
@@ -29,9 +30,21 @@ export function SearchMemoryPanel({ autoFocus = false, folderPath = "" }: Search
 
   async function submitSearch(event?: { preventDefault: () => void }) {
     event?.preventDefault();
+    await runSearch(query);
+  }
+
+  async function submitRenderedAnswerTurn(turn: RenderedAnswerSubmitTurn) {
+    setQuery(turn.label);
+    await runSearch(turn.prompt);
+  }
+
+  async function runSearch(nextQuery: string) {
+    const trimmedQuery = nextQuery.trim();
+    if (!trimmedQuery) return;
+
     setLoading(true);
     try {
-      const nextResult = await searchVaultMemory({ folderPath, query, scope });
+      const nextResult = await searchVaultMemory({ folderPath, query: trimmedQuery, scope });
       setResult(nextResult);
       setEvidenceOpen(false);
       setFocusedSourceRef(null);
@@ -96,11 +109,18 @@ export function SearchMemoryPanel({ autoFocus = false, folderPath = "" }: Search
         <div className="search-memory-results">
           {result.answer ? (
             <article className={`search-memory-answer ${result.answer.confidence}`}>
-              <div className="search-memory-answer-text">
-                {result.answer.answer.split("\n").map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-              </div>
+              <RenderedAnswerHost
+                canSubmitTurn={!loading}
+                className="search-memory-answer-text"
+                payload={result.answer.renderedAnswerPayload}
+                sources={result.answer.sourceRefs.map((sourceRef) => ({ id: sourceRef, title: sourceLabel(sourceRef) }))}
+                onOpenSource={(source) => openSource(source.id)}
+                onShowEvidence={({ focusSourceRef }) => {
+                  if (focusSourceRef) openSource(focusSourceRef);
+                  setEvidenceOpen(true);
+                }}
+                onSubmitTurn={submitRenderedAnswerTurn}
+              />
               {result.answer.limitations.length > 0 ? (
                 <p className="search-memory-muted">{result.answer.limitations.join(" ")}</p>
               ) : null}

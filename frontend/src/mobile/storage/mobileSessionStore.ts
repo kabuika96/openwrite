@@ -3,13 +3,14 @@ const activeSessionKey = "openwrite.mobile.activeSession";
 const hiddenArchiveKey = "openwrite.mobile.hiddenArchivedSessions";
 
 export type MobileDurableTurn = {
-  answer: string | null;
   completedAt: number;
   evidenceDisplay: "inline" | "primary" | "subtle";
   error: string | null;
+  hiddenPrompt?: string | null;
   id: string;
   progressNotes?: string[];
   query: string;
+  renderedAnswerPayload: string | null;
   resourcesSummary?: string | null;
   responseMode: "answer" | "mixed" | "search";
   sourceRefs: string[];

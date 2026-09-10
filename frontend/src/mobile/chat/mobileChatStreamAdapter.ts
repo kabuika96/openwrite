@@ -6,7 +6,17 @@ export function toMobileChatPresentationEvents(event: SearchChatStreamEvent): Mo
     return [{ turnId: event.turnId, type: "turn.created" }];
   }
   if (event.type === "progress") {
-    return [{ message: event.message, type: "progress" }];
+    return [
+      {
+        ...(event.at ? { createdAt: event.at } : {}),
+        ...(event.id ? { id: event.id } : {}),
+        message: event.message,
+        ...(event.parallelGroup ? { parallelGroup: event.parallelGroup } : {}),
+        ...(event.phase ? { phase: event.phase } : {}),
+        ...(event.status ? { status: event.status } : {}),
+        type: "progress",
+      },
+    ];
   }
   if (event.type === "retrieval.evidence") {
     return [{ sourceChips: sourceChipsFromEvidence(event.evidence), type: "sources.done" }];
@@ -14,13 +24,13 @@ export function toMobileChatPresentationEvents(event: SearchChatStreamEvent): Mo
   if (event.type === "intent.done") {
     return [intentDoneEvent(event.evidenceDisplay, event.responseMode, event.evidenceSummary)];
   }
-  if (event.type === "answer.delta") {
-    return [{ delta: event.delta, type: "answer.delta" }];
+  if (event.type === "renderedAnswer.delta") {
+    return [{ delta: event.delta, type: "renderedAnswer.delta" }];
   }
-  if (event.type === "answer.done") {
+  if (event.type === "renderedAnswer.done") {
     return [
-      { answer: event.answer.answer, type: "answer.done" },
-      { sourceChips: sourceChipsFromAnswerRefs(event.answer.sourceRefs, []), type: "sources.done" },
+      { renderedAnswerPayload: event.renderedAnswerPayload, type: "renderedAnswer.done" },
+      { sourceChips: sourceChipsFromAnswerRefs(event.sourceRefs, []), type: "sources.done" },
     ];
   }
   if (event.type === "turn.done") {
@@ -28,10 +38,10 @@ export function toMobileChatPresentationEvents(event: SearchChatStreamEvent): Mo
     return [
       intentDoneEvent(result.evidenceDisplay, result.responseMode, result.evidenceSummary),
       { sourceChips: sourceChipsFromAnswerRefs(result.answer?.sourceRefs ?? [], result.evidence), type: "sources.done" },
-      ...(result.answer?.answer
-        ? ([{ answer: result.answer.answer, type: "answer.done" }] as const)
+      ...(result.answer?.renderedAnswerPayload
+        ? ([{ renderedAnswerPayload: result.answer.renderedAnswerPayload, type: "renderedAnswer.done" }] as const)
         : result.inactiveState
-          ? ([{ answer: result.inactiveState, type: "answer.done" }] as const)
+          ? ([{ renderedAnswerPayload: `<p>${escapeHtml(result.inactiveState)}</p>`, type: "renderedAnswer.done" }] as const)
           : []),
       { type: "turn.done" },
     ];
@@ -57,7 +67,7 @@ function intentDoneEvent(
 
 export function sourceChipsFromEvidence(evidence: SearchMemoryEvidence[]) {
   return uniqueSourceChips(
-    evidence.slice(0, 8).map((item) => ({
+    evidence.map((item) => ({
       id: item.id,
       title: item.title || item.file.title || sourceLabel(item.id),
     })),
@@ -67,7 +77,7 @@ export function sourceChipsFromEvidence(evidence: SearchMemoryEvidence[]) {
 function sourceChipsFromAnswerRefs(sourceRefs: string[], evidence: SearchMemoryEvidence[]) {
   if (sourceRefs.length === 0) return sourceChipsFromEvidence(evidence);
   return uniqueSourceChips(
-    sourceRefs.slice(0, 8).map((sourceRef) => {
+    sourceRefs.map((sourceRef) => {
       const matchedEvidence = evidence.find((item) => item.id === sourceRef || item.sourceRefs.includes(sourceRef));
       return {
         id: sourceRef,
@@ -89,4 +99,13 @@ function uniqueSourceChips(chips: MobileSourceChip[]) {
 function sourceLabel(sourceRef: string) {
   const parts = sourceRef.split(":");
   return parts.length > 1 ? parts[0] : sourceRef.split("/").pop() ?? sourceRef;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

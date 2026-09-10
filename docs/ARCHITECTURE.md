@@ -49,8 +49,10 @@ Mobile PWA (redesign pending)
 - The first implementation step is a pure Ionic `/mobile` shell spike with dummy streamed chat content, a stable header, bottom composer, source/settings placeholders, and viewport/keyboard diagnostics; real search wiring waits until that shell passes automated checks plus manual iPhone Safari and installed Home Screen PWA validation.
 - The first mobile slice should cover search chat, source viewing, Search & Memory settings, provider validation, and the header integration indicator.
 - The first mobile slice API boundary is intentionally limited to `/api/health`, search chat SSE, source file retrieval, Search & Memory settings snapshot/update, provider validation, and ChatGPT sign-in.
-- Mobile chat uses the shared search chat SSE contract through a mobile presentation adapter in `frontend/src/mobile/chat/`. The backend stream stays canonical; the adapter maps events into mobile turn state, progress notes, answer deltas, evidence visibility, source chips, errors, completion, and durable browser-local transcript artifacts.
-- Mobile chat supports one active streaming turn per session in the first slice. While a turn streams, the composer becomes a stop/cancel control with input disabled; cancellation aborts the stream and keeps the partial turn non-durable unless `turn.done` already arrived.
+- Mobile chat uses the shared search chat SSE contract through a mobile presentation adapter in `frontend/src/mobile/chat/`. The backend stream stays canonical; the adapter maps events into mobile turn state, progress notes, one live safe model reasoning chip, rendered answer deltas, evidence visibility, source chips, errors, completion, and durable browser-local transcript artifacts.
+- Rendered answer documents inherit a compact OpenWrite theme contract: black background compatibility, high-contrast text, compact spacing, clear hierarchy, simple organization, and minimal chrome. The model should avoid outlined/card-heavy UI by default, prefer less text when possible, and remain free to use colors, emojis, images, diagrams, charts, icons, graphics, rich media, and interactions when they improve the answer.
+- Rendered answer bridge actions require explicit user gestures. Generated fragments may initialize local UI during mount, timers, or async setup, but app actions such as `OpenWrite.submitTurn`, `OpenWrite.openSource`, and `OpenWrite.showEvidence` must be attached to user-initiated controls. The host preserves a short gesture window so async local work that starts from a tap can still call the bridge.
+- Mobile chat supports one active streaming turn per session in the first slice. While a turn streams, an empty composer shows stop/cancel, but a typed new message can be submitted immediately; that aborts the active stream, marks the partial turn cancelled, ignores late events from the aborted stream, and starts the new turn without queueing. Cancelled partial turns stay non-durable unless `turn.done` already arrived.
 - Mobile evidence presentation follows backend-provided `responseMode` and `evidenceDisplay`; mobile fallback defaults are answer -> subtle, mixed -> inline, and search -> primary only when those values are missing.
 - When the server is reachable but Search & Memory setup is incomplete, `/mobile` should still render the chat shell with a visible header attention indicator, disabled query submission, a compact setup-required row above the composer, and a full-screen Search & Memory settings action.
 - Mobile Search & Memory settings are self-sufficient for setup: ChatGPT sign-in, embeddings API key management for embeddings only, provider validation, per-vault opt-ins, reasoning selects, embedding model select, and answer concurrency are editable. Queue/status/freshness/provider details are read-only. Heavy maintenance controls remain desktop-only in the first slice.
@@ -129,19 +131,23 @@ Create, rename, move, reorder, icon, and delete operations go through backend AP
 ### Searching the Vault
 
 1. The user can choose a simple search scope: All, Pages, Files, Images/PDFs, or the current folder/subtree.
-2. The search ranking pipeline applies the scope, then queries the app-local lexical search index and vault memory index over paths, titles, file properties, source spans, structured search digests, memory cards, entities, relationships, and events.
-3. It fuses filename, metadata, exact text, digest, embedding similarity, freshness, explainable importance, and memory-graph proximity signals into provenance-rich results.
-4. OpenWrite builds a token-budgeted evidence pack from the ranked evidence, prioritizing strong matches and diversifying across files and source types.
-5. OpenWrite checks the disposable answer cache using the vault, query, scope, evidence-pack fingerprint, and model config fingerprint.
-6. If no matching cached answer exists, OpenWrite sends the query and evidence pack to the configured model provider for answer synthesis when AI answers are active and the user explicitly submits the query.
-7. The model provider returns an evidence-bound answer with answer text, confidence, limitations, and source references. If evidence is weak, missing, or contradictory, the answer states that instead of filling gaps from model knowledge.
-8. The search view shows the AI-generated or cache-reused search answer first.
-9. When AI answer synthesis is inactive, the answer area shows an inactive state with a route to the Configs page instead of fabricating an answer.
-10. Additional answer jobs queue when five answer jobs are already running, and stale answer jobs are cancelled when the user changes the query before completion.
-11. The answer includes compact source chips for answer claims. Selecting a source chip opens the evidence toggle focused on that source.
-12. The ranked search evidence stays hidden by default and becomes visible when the user opens the evidence toggle.
-13. Evidence shows index freshness such as indexed, digesting, stale, metadata-only, failed, or unsupported.
-14. Evidence links back to the source vault file and, when available, to a page, section, frame, timestamp, or snippet hint inside that file.
+2. If the chat session has prior durable turns, OpenWrite asks the model to enrich the current turn before source fetching by rewriting the retrieval query from the current query plus compact prior turns.
+3. OpenWrite runs a fast model query clarity check in parallel with the first local ranked search. If the model is highly confident the query is too vague to browse usefully, OpenWrite skips the planner and returns a clarification question with suggested replacement queries.
+4. Otherwise, the retrieval loop starts with at most five ranked results for the first query, then repeatedly asks the planner for follow-up search phrases and discard decisions over the accumulated evidence. Each follow-up phrase fetches another five-result batch, and the loop keeps accumulating and pruning evidence until the planner stops asking for new searches or a refinement yields no new evidence.
+5. The search ranking pipeline applies the scope, then queries the app-local lexical search index and vault memory index over paths, titles, file properties, source spans, structured search digests, memory cards, entities, relationships, and events.
+6. It fuses filename, metadata, exact text, digest, embedding similarity, freshness, explainable importance, and memory-graph proximity signals into provenance-rich results.
+7. OpenWrite builds the active evidence pack from the accumulated ranked evidence without an arbitrary eight-source ceiling, while letting the planner remove clearly noisy, stale, duplicative, or superseded sources from the working set.
+8. The retrieval loop may request full local document reads by source ref. OpenWrite also greedily reads useful top sources, especially PDFs and images, includes readable text in answer context, and attaches supported PDFs/images to the model input.
+9. OpenWrite checks the disposable answer cache using the vault, query, scope, evidence-pack fingerprint, document-read fingerprint, conversation turn context fingerprint, and model config fingerprint.
+10. If no matching cached answer exists, OpenWrite sends the query, conversation context, a compact budgeted representation of the active evidence pack, and document-read context to the configured model provider for answer synthesis when AI answers are active and the user explicitly submits the query. The compact representation preserves retained source identities and trims or omits snippets before prompt size can destabilize answer generation.
+11. The model provider returns an evidence-bound rendered answer object with `renderedAnswerPayload`, confidence, limitations, and source references. If evidence is weak, missing, or contradictory, the rendered answer document states that instead of filling gaps from model knowledge.
+12. The search view shows the AI-generated or cache-reused rendered answer document first.
+13. When AI answer synthesis is inactive, the answer area shows an inactive state with a route to the Configs page instead of fabricating an answer.
+14. Additional answer jobs queue when five answer jobs are already running, and stale answer jobs are cancelled when the user changes the query before completion.
+15. The rendered answer document may include source affordances when that helps the answer, while OpenWrite stores machine-readable source refs outside the payload. Shell-owned evidence entry points can use those refs without requiring generated answers to show sources.
+16. The ranked search evidence stays hidden by default and becomes visible when the user opens the evidence toggle.
+17. Evidence shows index freshness such as indexed, digesting, stale, metadata-only, failed, or unsupported.
+18. Evidence links back to the source vault file and, when available, to a page, section, frame, timestamp, or snippet hint inside that file.
 
 A dedicated Memory view is deferred. Search is the first product surface for the vault memory index.
 
@@ -158,5 +164,6 @@ The ADRs in `docs/adr/` capture the main project decisions:
 - Electron desktop app shell.
 - Table block Markdown storage.
 - Hybrid vault memory search.
+- Rendered answer documents.
 - React Native mobile client, now superseded by the mobile PWA redesign.
 - Mobile PWA with iOS feel.

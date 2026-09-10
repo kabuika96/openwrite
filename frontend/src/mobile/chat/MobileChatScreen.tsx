@@ -1,17 +1,19 @@
 import { IonContent, IonFooter } from "@ionic/react";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RenderedAnswerHost, type RenderedAnswerSubmitTurn } from "../../search/RenderedAnswerHost";
 import { streamSearchMemoryChat } from "../../search/searchMemory";
+import type { SearchMemoryChatInput, SearchMemoryConversationTurn } from "../../search/searchMemory";
 import type { MobileDurableTurn, MobileStoredSession } from "../storage/mobileSessionStore";
 import {
   applyMobileChatPresentationEvent,
   cancelMobileChatTurn,
-  canStartMobileChatTurn,
   createMobileChatState,
   isMobileChatStreaming,
   startMobileChatTurn,
   toMobileDurableTurn,
   type MobileChatPresentationEvent,
+  type MobileProgressItem,
   type MobileChatTurn,
   type MobileChatState,
   type MobileSourceChip,
@@ -27,6 +29,13 @@ type MobileChatScreenProps = {
   setupRequired: boolean;
 };
 
+type QueuedStreamInput = {
+  displayQuery: string;
+  history: SearchMemoryConversationTurn[];
+  streamGeneration: number;
+  streamQuery: string;
+};
+
 export function MobileChatScreen({
   onActivity,
   onDurableTurn,
@@ -37,11 +46,12 @@ export function MobileChatScreen({
 }: MobileChatScreenProps) {
   const [draft, setDraft] = useState("");
   const [chatState, setChatState] = useState<MobileChatState>(() => createMobileChatState(session));
-  const [queuedStreamQuery, setQueuedStreamQuery] = useState<string | null>(null);
+  const [queuedStreamInput, setQueuedStreamInput] = useState<QueuedStreamInput | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const persistedTurnIdsRef = useRef<Set<string>>(new Set(session.turns.map((turn) => turn.id)));
   const streamControllerRef = useRef<AbortController | null>(null);
+  const streamGenerationRef = useRef(0);
 
   useEffect(() => () => streamControllerRef.current?.abort(), []);
 
@@ -69,7 +79,10 @@ export function MobileChatScreen({
   }, [chatState.turns, onDurableTurn]);
 
   const scrollKey = chatState.turns
-    .map((turn) => `${turn.id}:${turn.status}:${turn.answer.length}:${turn.progressNotes.length}:${turn.sourceChips.length}`)
+    .map(
+      (turn) =>
+        `${turn.id}:${turn.status}:${turn.renderedAnswerPayload.length}:${turn.renderedAnswerDraft.length}:${turn.progressItems.map((item) => `${item.id}:${item.message}:${item.status}`).join(",")}:${turn.sourceChips.length}`,
+    )
     .join("|");
 
   useEffect(() => {
@@ -77,14 +90,20 @@ export function MobileChatScreen({
   }, [scrollKey]);
 
   const startBackendStream = useCallback(
-    (query: string) => {
+    (input: QueuedStreamInput) => {
       streamControllerRef.current?.abort();
       const controller = new AbortController();
+      const streamGeneration = input.streamGeneration;
       streamControllerRef.current = controller;
+      const request: SearchMemoryChatInput =
+        input.history.length > 0
+          ? { query: input.streamQuery, scope: "all", turns: input.history }
+          : { query: input.streamQuery, scope: "all" };
 
       void streamSearchMemoryChat(
-        { query, scope: "all" },
+        request,
         (event) => {
+          if (controller.signal.aborted || streamGenerationRef.current !== streamGeneration) return;
           for (const presentationEvent of toMobileChatPresentationEvents(event)) {
             applyEvent(presentationEvent);
           }
@@ -92,7 +111,7 @@ export function MobileChatScreen({
         controller.signal,
       )
         .catch((error) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || streamGenerationRef.current !== streamGeneration) return;
           applyEvent({
             message: error instanceof Error ? error.message : "Search chat stream failed",
             type: "turn.error",
@@ -108,38 +127,72 @@ export function MobileChatScreen({
   );
 
   useEffect(() => {
-    if (!queuedStreamQuery) return;
-    if (!chatState.turns.some((turn) => turn.status === "streaming" && turn.query === queuedStreamQuery)) return;
-    startBackendStream(queuedStreamQuery);
-    setQueuedStreamQuery(null);
-  }, [chatState.turns, queuedStreamQuery, startBackendStream]);
+    if (!queuedStreamInput) return;
+    if (!chatState.turns.some((turn) => turn.status === "streaming" && turn.query === queuedStreamInput.displayQuery)) return;
+    startBackendStream(queuedStreamInput);
+    setQueuedStreamInput(null);
+  }, [chatState.turns, queuedStreamInput, startBackendStream]);
+
+  const submitChatTurn = useCallback(
+    ({ displayQuery, hiddenPrompt = null }: { displayQuery: string; hiddenPrompt?: string | null }) => {
+      const query = displayQuery.trim();
+      const streamQuery = hiddenPrompt?.trim() || query;
+      if (!query || !streamQuery || setupRequired) {
+        return false;
+      }
+      const history = mobileConversationHistory(chatState.turns);
+      streamControllerRef.current?.abort();
+      streamControllerRef.current = null;
+      setQueuedStreamInput(null);
+      const streamGeneration = streamGenerationRef.current + 1;
+      streamGenerationRef.current = streamGeneration;
+      onActivity();
+      setChatState((current) => startMobileChatTurn(current, query, Date.now(), streamQuery === query ? null : streamQuery));
+      setQueuedStreamInput({ displayQuery: query, history, streamGeneration, streamQuery });
+      return true;
+    },
+    [chatState, onActivity, setupRequired],
+  );
 
   const submit = useCallback(() => {
     const query = draft.trim();
-    if (!query || setupRequired || !canStartMobileChatTurn(chatState)) return;
-    onActivity();
+    if (!query) return;
+    if (!submitChatTurn({ displayQuery: query })) return;
     setDraft("");
-    setChatState((current) => startMobileChatTurn(current, query, Date.now()));
-    setQueuedStreamQuery(query);
-  }, [chatState, draft, onActivity, setupRequired]);
+  }, [draft, submitChatTurn]);
+
+  const submitRenderedAnswerTurn = useCallback(
+    async (turn: RenderedAnswerSubmitTurn) => {
+      const accepted = submitChatTurn({ displayQuery: turn.label, hiddenPrompt: turn.prompt });
+      if (!accepted) throw new Error("OpenWrite is not ready for another turn.");
+    },
+    [submitChatTurn],
+  );
 
   const cancel = useCallback(() => {
+    streamGenerationRef.current += 1;
     streamControllerRef.current?.abort();
     streamControllerRef.current = null;
-    setQueuedStreamQuery(null);
+    setQueuedStreamInput(null);
     setChatState((current) => cancelMobileChatTurn(current));
     onActivity();
   }, [onActivity]);
 
   const streaming = isMobileChatStreaming(chatState);
-  const canSubmit = draft.trim().length > 0 && !setupRequired && !streaming;
+  const canSubmit = draft.trim().length > 0 && !setupRequired;
 
   return (
     <>
       <IonContent className="ow-mobile-content ow-mobile-chat-content" fullscreen={false} scrollY={true}>
         <main className="ow-mobile-chat-log" aria-label="Conversation">
           {chatState.turns.map((turn) => (
-            <ChatTurn key={turn.id} onOpenSource={onOpenSource} turn={turn} />
+            <ChatTurn
+              key={turn.id}
+              canSubmitTurn={!setupRequired}
+              onOpenSource={onOpenSource}
+              onSubmitRenderedAnswerTurn={submitRenderedAnswerTurn}
+              turn={turn}
+            />
           ))}
           <div ref={bottomRef} aria-hidden="true" className="ow-mobile-chat-bottom" />
         </main>
@@ -176,7 +229,7 @@ export function MobileChatScreen({
               submit();
             }}
           />
-          {streaming ? (
+          {streaming && !draft.trim() ? (
             <div aria-label="Stop" className="ow-mobile-send-button" role="button" tabIndex={0} onClick={cancel}>
               <span aria-hidden="true" className="ow-mobile-button-glyph">
                 []
@@ -200,67 +253,107 @@ export function MobileChatScreen({
   );
 }
 
+function mobileConversationHistory(turns: MobileChatTurn[]): SearchMemoryConversationTurn[] {
+  return turns
+    .filter((turn) => turn.status === "complete" || turn.status === "error")
+    .map((turn) => ({
+      error: turn.error,
+      evidenceDisplay: turn.evidenceDisplay,
+      hiddenPrompt: turn.hiddenPrompt,
+      query: turn.query,
+      renderedAnswerPayload: turn.renderedAnswerPayload || null,
+      resourcesSummary: turn.resourcesSummary,
+      responseMode: turn.responseMode,
+      sourceRefs: turn.sourceChips.map((source) => source.id),
+    }));
+}
+
 function ChatTurn({
+  canSubmitTurn,
   onOpenSource,
+  onSubmitRenderedAnswerTurn,
   turn,
 }: {
+  canSubmitTurn: boolean;
   onOpenSource: (source: MobileSourceChip) => void;
+  onSubmitRenderedAnswerTurn: (turn: RenderedAnswerSubmitTurn) => Promise<void>;
   turn: MobileChatTurn;
 }) {
+  const [resourceRevealToken, setResourceRevealToken] = useState(0);
+
   return (
     <article className="ow-mobile-turn">
       <p className="ow-mobile-query">{turn.query}</p>
       {turn.sourceChips.length > 0 ? (
         <ResourceBlock
           pending={turn.status === "streaming"}
+          revealToken={resourceRevealToken}
           summary={turn.resourcesSummary}
           sources={turn.sourceChips}
           onOpenSource={onOpenSource}
         />
       ) : null}
-      {turn.progressNotes.length > 0 && turn.status === "streaming" && !turn.answer ? (
-        <ReasoningChip notes={turn.progressNotes} />
+      {turn.progressItems.length > 0 && turn.status === "streaming" && !turn.renderedAnswerPayload ? (
+        <ReasoningTimeline items={turn.progressItems} />
       ) : null}
-      {turn.answer ? <p className="ow-mobile-answer">{turn.answer}</p> : null}
+      {turn.renderedAnswerPayload ? (
+        <RenderedAnswerHost
+          canSubmitTurn={canSubmitTurn}
+          className="ow-mobile-answer"
+          payload={turn.renderedAnswerPayload}
+          sources={turn.sourceChips}
+          onOpenSource={onOpenSource}
+          onShowEvidence={() => setResourceRevealToken((current) => current + 1)}
+          onSubmitTurn={onSubmitRenderedAnswerTurn}
+        />
+      ) : null}
       {turn.error ? <p className="ow-mobile-error">{turn.error}</p> : null}
       {turn.status === "cancelled" ? <p className="ow-mobile-muted-line">Stopped.</p> : null}
     </article>
   );
 }
 
-function ReasoningChip({ notes }: { notes: string[] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [notes]);
-
-  useEffect(() => {
-    if (notes.length < 2) return undefined;
-    const interval = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % notes.length);
-    }, 1600);
-    return () => window.clearInterval(interval);
-  }, [notes.length]);
-
-  const note = notes[Math.min(activeIndex, notes.length - 1)];
-  if (!note) return null;
-
+function ReasoningTimeline({ items }: { items: MobileProgressItem[] }) {
+  const item = currentReasoningChip(items);
+  if (!item) return null;
   return (
-    <div className="ow-mobile-reasoning-chip" aria-label="Reasoning">
-      {note}
+    <div className="ow-mobile-reasoning-timeline" aria-label="Reasoning" aria-live="polite">
+      <div className={`ow-mobile-reasoning-item ${item.status}`}>
+        <span aria-hidden="true" className="ow-mobile-reasoning-dot" />
+        <span>{item.message}</span>
+      </div>
     </div>
   );
+}
+
+function currentReasoningChip(items: MobileProgressItem[]) {
+  return latestProgressItem(items, (item) => item.status === "running") ?? latestProgressItem(items, () => true);
+}
+
+function latestProgressItem(items: MobileProgressItem[], predicate: (item: MobileProgressItem) => boolean) {
+  let latest: { index: number; item: MobileProgressItem; time: number } | null = null;
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    if (!item.message.trim() || !predicate(item)) continue;
+    const time = item.createdAt ? Date.parse(item.createdAt) : Number.NaN;
+    const comparableTime = Number.isFinite(time) ? time : index;
+    if (!latest || comparableTime > latest.time || (comparableTime === latest.time && index > latest.index)) {
+      latest = { index, item, time: comparableTime };
+    }
+  }
+  return latest?.item ?? null;
 }
 
 function ResourceBlock({
   onOpenSource,
   pending,
+  revealToken,
   sources,
   summary,
 }: {
   onOpenSource: (source: MobileSourceChip) => void;
   pending: boolean;
+  revealToken: number;
   sources: MobileSourceChip[];
   summary: string | null;
 }) {
@@ -269,6 +362,10 @@ function ResourceBlock({
   useEffect(() => {
     setExpanded(!summary);
   }, [summary]);
+
+  useEffect(() => {
+    if (revealToken > 0) setExpanded(true);
+  }, [revealToken]);
 
   if (sources.length === 0) return null;
 

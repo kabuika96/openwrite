@@ -190,7 +190,27 @@ html.ow-mobile-document #root {
   font-size: 14px;
   line-height: 1.55;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+}
+
+.ow-rendered-answer-host {
+  display: block;
+  min-width: 0;
+}
+
+.ow-rendered-answer-frame {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color-scheme: dark;
+}
+
+.ow-rendered-answer-runtime-error {
+  margin: 6px 0 0;
+  color: rgba(255, 143, 143, 0.8);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .ow-mobile-error {
@@ -201,18 +221,63 @@ html.ow-mobile-document #root {
   color: rgba(243, 243, 240, 0.58);
 }
 
-.ow-mobile-reasoning-chip {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
+.ow-mobile-reasoning-timeline {
+  display: grid;
+  gap: 7px;
   max-width: min(94%, 640px);
-  min-height: 32px;
-  padding: 0;
+}
+
+.ow-mobile-reasoning-group {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.ow-mobile-reasoning-group.parallel {
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+}
+
+.ow-mobile-reasoning-parallel-mark {
+  padding-top: 2px;
+  color: rgba(243, 243, 240, 0.34);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.ow-mobile-reasoning-group-items {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ow-mobile-reasoning-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
   color: rgba(243, 243, 240, 0.62);
   font-size: 12px;
-  line-height: 1.25;
+  line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.ow-mobile-reasoning-item.running {
   animation: ow-mobile-pending-brightness 1.25s linear infinite !important;
+}
+
+.ow-mobile-reasoning-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(243, 243, 240, 0.38);
+}
+
+.ow-mobile-reasoning-item.done .ow-mobile-reasoning-dot {
+  background: rgba(155, 226, 155, 0.58);
 }
 
 .ow-mobile-source-row {
@@ -506,6 +571,89 @@ html.ow-mobile-document #root {
 
 .ow-mobile-status-line strong.ready {
   color: #9be29b;
+}
+
+.ow-mobile-settings-collapsible {
+  gap: 10px;
+}
+
+.ow-mobile-collapsible-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f3f3f0;
+  font: inherit;
+  text-align: left;
+}
+
+.ow-mobile-collapsible-trigger > span {
+  display: grid;
+  gap: 3px;
+}
+
+.ow-mobile-collapsible-trigger strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.ow-mobile-collapsible-body {
+  display: grid;
+  gap: 10px;
+}
+
+.ow-mobile-memory-status-grid {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(243, 243, 240, 0.08);
+}
+
+.ow-mobile-memory-metric {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
+  gap: 12px;
+  min-height: 40px;
+  padding: 10px 12px;
+  background: #0d0d0d;
+  color: rgba(243, 243, 240, 0.68);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ow-mobile-memory-metric strong {
+  color: #f3f3f0;
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.ow-mobile-memory-freshness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ow-mobile-memory-freshness span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(243, 243, 240, 0.08);
+  color: rgba(243, 243, 240, 0.72);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.ow-mobile-maintenance-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .ow-mobile-settings-list {

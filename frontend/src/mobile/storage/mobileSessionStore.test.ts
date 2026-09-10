@@ -35,12 +35,12 @@ describe("mobile session storage", () => {
     const session = addMobileDurableTurn(
       createMobileSession(1000),
       {
-        answer: "Answer",
         completedAt: 1500,
         error: null,
         evidenceDisplay: "subtle",
         id: "turn-1",
         query: "Query",
+        renderedAnswerPayload: "<p>Answer</p>",
         responseMode: "mixed",
         sourceRefs: [],
       },
@@ -70,12 +70,12 @@ describe("mobile session storage", () => {
     const withTurn = addMobileDurableTurn(
       active,
       {
-        answer: "Answer",
         completedAt: 1600,
         error: null,
         evidenceDisplay: "subtle",
         id: "turn-1",
         query: "Query",
+        renderedAnswerPayload: "<p>Answer</p>",
         responseMode: "mixed",
         sourceRefs: ["source-1"],
       },
@@ -90,12 +90,12 @@ describe("mobile session storage", () => {
   it("keeps durable turn persistence idempotent by turn id", () => {
     const session = createMobileSession(1000);
     const turn = {
-      answer: "Answer",
       completedAt: 1600,
       error: null,
       evidenceDisplay: "subtle" as const,
       id: "turn-1",
       query: "Query",
+      renderedAnswerPayload: "<p>Answer</p>",
       responseMode: "mixed" as const,
       sourceRefs: ["source-1"],
     };
@@ -109,16 +109,16 @@ describe("mobile session storage", () => {
   it("replaces a repeated durable turn id with the latest payload", () => {
     const session = createMobileSession(1000);
     const first = {
-      answer: "Old",
       completedAt: 1600,
       error: null,
       evidenceDisplay: "subtle" as const,
       id: "turn-1",
       query: "Query",
+      renderedAnswerPayload: "<p>Old</p>",
       responseMode: "mixed" as const,
       sourceRefs: ["source-1"],
     };
-    const second = { ...first, answer: "New", completedAt: 1700 };
+    const second = { ...first, completedAt: 1700, renderedAnswerPayload: "<p>New</p>" };
 
     const withTurn = addMobileDurableTurn(addMobileDurableTurn(session, first, 1600), second, 1700);
 
@@ -141,16 +141,16 @@ describe("mobile session storage", () => {
     const storage = new MemoryStorage();
     const session = createMobileSession(1000);
     const first = {
-      answer: "Old",
       completedAt: 1600,
       error: null,
       evidenceDisplay: "subtle" as const,
       id: "turn-1",
       query: "Query",
+      renderedAnswerPayload: "<p>Old</p>",
       responseMode: "mixed" as const,
       sourceRefs: ["source-1"],
     };
-    const second = { ...first, answer: "New", completedAt: 1700 };
+    const second = { ...first, completedAt: 1700, renderedAnswerPayload: "<p>New</p>" };
 
     storage.setItem("openwrite.mobile.activeSession", JSON.stringify({ ...session, turns: [first, second] }));
     storage.setItem("openwrite.mobile.hiddenArchivedSessions", JSON.stringify([]));

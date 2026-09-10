@@ -3,17 +3,44 @@ import { toMobileChatPresentationEvents } from "./mobileChatStreamAdapter";
 import type { SearchMemoryEvidence } from "../../search/searchMemory";
 
 describe("mobile chat stream adapter", () => {
-  it("maps backend answer stream events into mobile presentation events", () => {
-    expect(toMobileChatPresentationEvents({ delta: "Answer", type: "answer.delta" })).toEqual([
-      { delta: "Answer", type: "answer.delta" },
+  it("maps structured progress events for the reasoning timeline", () => {
+    expect(
+      toMobileChatPresentationEvents({
+        at: "2026-05-10T00:00:00.000Z",
+        id: "answer.reasoning",
+        message: "Reviewing Project Alpha evidence.",
+        parallelGroup: "answer-build-1",
+        phase: "answer-reasoning",
+        status: "done",
+        type: "progress",
+      }),
+    ).toEqual([
+      {
+        createdAt: "2026-05-10T00:00:00.000Z",
+        id: "answer.reasoning",
+        message: "Reviewing Project Alpha evidence.",
+        parallelGroup: "answer-build-1",
+        phase: "answer-reasoning",
+        status: "done",
+        type: "progress",
+      },
+    ]);
+  });
+
+  it("maps backend rendered answer stream events into mobile presentation events", () => {
+    expect(toMobileChatPresentationEvents({ delta: "<p>Answer", type: "renderedAnswer.delta" })).toEqual([
+      { delta: "<p>Answer", type: "renderedAnswer.delta" },
     ]);
     expect(
       toMobileChatPresentationEvents({
-        answer: { answer: "Final answer", confidence: "high", limitations: [], sourceRefs: ["source-1"] },
-        type: "answer.done",
+        confidence: "high",
+        limitations: [],
+        renderedAnswerPayload: "<p>Final answer</p>",
+        sourceRefs: ["source-1"],
+        type: "renderedAnswer.done",
       }),
     ).toEqual([
-      { answer: "Final answer", type: "answer.done" },
+      { renderedAnswerPayload: "<p>Final answer</p>", type: "renderedAnswer.done" },
       { sourceChips: [{ id: "source-1", title: "source-1" }], type: "sources.done" },
     ]);
   });
@@ -37,7 +64,12 @@ describe("mobile chat stream adapter", () => {
     expect(
       toMobileChatPresentationEvents({
         result: {
-          answer: { answer: "Use the project notes.", confidence: "medium", limitations: [], sourceRefs: ["source-1"] },
+          answer: {
+            confidence: "medium",
+            limitations: [],
+            renderedAnswerPayload: "<p>Use the project notes.</p>",
+            sourceRefs: ["source-1"],
+          },
           evidence,
           evidenceDisplay: "primary",
           evidenceFingerprint: "fingerprint",
@@ -51,8 +83,28 @@ describe("mobile chat stream adapter", () => {
     ).toEqual([
       { evidenceDisplay: "primary", resourcesSummary: "Project planning notes", responseMode: "mixed", type: "intent.done" },
       { sourceChips: [{ id: "source-1", title: "Project notes" }], type: "sources.done" },
-      { answer: "Use the project notes.", type: "answer.done" },
+      { renderedAnswerPayload: "<p>Use the project notes.</p>", type: "renderedAnswer.done" },
       { type: "turn.done" },
+    ]);
+  });
+
+  it("does not cap mobile source chips at eight", () => {
+    const sourceRefs = Array.from({ length: 12 }, (_, index) => `source-${index + 1}`);
+
+    expect(
+      toMobileChatPresentationEvents({
+        confidence: "high",
+        limitations: [],
+        renderedAnswerPayload: "<p>Final answer</p>",
+        sourceRefs,
+        type: "renderedAnswer.done",
+      }),
+    ).toEqual([
+      { renderedAnswerPayload: "<p>Final answer</p>", type: "renderedAnswer.done" },
+      {
+        sourceChips: sourceRefs.map((sourceRef) => ({ id: sourceRef, title: sourceRef })),
+        type: "sources.done",
+      },
     ]);
   });
 

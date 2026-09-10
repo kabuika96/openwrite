@@ -26,6 +26,17 @@ test("round-trips common writing blocks through Markdown", () => {
   assert.equal(markdownFromPageYDoc(createPageYDocFromMarkdown(markdown)), markdown);
 });
 
+test("round-trips Mermaid diagrams as fenced code blocks", () => {
+  const markdown = "```mermaid\nflowchart LR\n  Idea --> Draft\n  Draft --> Done\n```\n";
+
+  assert.deepEqual(markdownToProseMirrorJSON(markdown).content[0], {
+    type: "codeBlock",
+    attrs: { language: "mermaid" },
+    content: [{ type: "text", text: "flowchart LR\n  Idea --> Draft\n  Draft --> Done" }],
+  });
+  assert.equal(markdownFromPageYDoc(createPageYDocFromMarkdown(markdown)), markdown);
+});
+
 test("parses Markdown inline marks as editor marks", () => {
   const json = markdownToProseMirrorJSON(
     "**Bold**, *italic*, `code`, ~~strike~~, [OpenWrite](https://example.com), and [[Project Notes|notes]]\n",

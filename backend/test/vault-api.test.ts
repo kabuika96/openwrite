@@ -257,7 +257,8 @@ test("vault API exposes Search & Memory config, search, and maintenance routes",
       query: "Who owns Apollo?",
       scope: "all",
     });
-    assert.match(search.answer.answer, /Apollo/i);
+    assert.match(search.answer.renderedAnswerPayload, /Apollo/i);
+    assert.equal(Object.hasOwn(search.answer, "answer"), false);
     assert.equal(search.evidence.length > 0, true);
 
     const rescanned = await post({ instance, store }, "/api/search-memory/rescan", {});
@@ -325,9 +326,15 @@ test("vault API search chat stream returns an answer for search-mode turns", asy
 
     assert.equal(response.statusCode, 200);
     assert.equal(events.find((event) => event.type === "intent.done")?.responseMode, "search");
-    assert.equal(events.some((event) => event.type === "answer.delta"), true);
-    assert.equal(events.find((event) => event.type === "answer.done")?.answer.answer, "I found Project Alpha notes in the vault.");
-    assert.equal(events.find((event) => event.type === "turn.done")?.result.answer.answer, "I found Project Alpha notes in the vault.");
+    assert.equal(events.some((event) => event.type === "renderedAnswer.delta"), true);
+    assert.equal(
+      events.find((event) => event.type === "renderedAnswer.done")?.renderedAnswerPayload,
+      "<p>I found Project Alpha notes in the vault.</p>",
+    );
+    assert.equal(
+      events.find((event) => event.type === "turn.done")?.result.answer.renderedAnswerPayload,
+      "<p>I found Project Alpha notes in the vault.</p>",
+    );
   } finally {
     store.close();
     await new Promise((resolve, reject) => modelServer.close((error) => (error ? reject(error) : resolve(undefined))));

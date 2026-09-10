@@ -35,7 +35,7 @@ export function App() {
           <header className="vault-start-header">
             <strong>
               <span className="app-logo" aria-hidden="true">
-                🐒
+                🌼
               </span>
               OpenWrite
             </strong>

@@ -32,8 +32,32 @@ const sourceSpanOverlap = 120;
 const tinyFileBytes = 4000;
 const heartbeatIntervalMs = 2000;
 const modelDigestTimeoutMs = 60_000;
-const modelAnswerTimeoutMs = 45_000;
+const modelAnswerTimeoutMs = 180_000;
+const modelSearchClarityTimeoutMs = 15_000;
+const modelAnswerProgressTimeoutMs = 12_000;
+const modelAnswerProgressMinChars = 240;
+const modelAnswerProgressChars = 900;
+const modelAnswerProgressMaxRequests = 8;
+const modelAnswerProgressMaxWaitMs = 1_000;
+const modelAnswerProgressMinUpdateMs = 250;
+const modelAnswerProgressCharsPerUpdate = 400;
 const modelPromptTextLimit = 24_000;
+const documentReadMaxFiles = 10;
+const documentReadMaxAttachmentBytes = 48_000_000;
+const documentReadMaxTextChars = 120_000;
+const documentReadPerFileTextChars = 30_000;
+const conversationTurnMaxCount = 8;
+const conversationTurnMaxAnswerChars = 4_000;
+const conversationTurnMaxPromptChars = 2_000;
+const conversationTurnMaxQueryChars = 600;
+const conversationTurnMaxSourceRefs = 12;
+const searchTurnEnrichmentMaxQueryChars = 900;
+const searchRetrievalBatchSize = 5;
+const searchRetrievalSafetyMaxPasses = 24;
+const searchRetrievalWeakEvidenceMaxPasses = 3;
+const modelEvidencePromptMaxChars = 18_000;
+const modelReadDocumentsPromptTextMaxChars = 36_000;
+const modelReadDocumentsPromptPerFileMaxChars = 8_000;
 const queryStopWords = new Set([
   "a",
   "about",
@@ -223,10 +247,10 @@ type SearchAnswerCacheEntry = {
 };
 
 type SearchAnswer = {
-  answer: string;
   cached?: boolean;
   confidence: "high" | "low" | "medium";
   limitations: string[];
+  renderedAnswerPayload: string;
   sourceRefs: string[];
 };
 
@@ -241,6 +265,18 @@ type SearchInput = {
   folderPath?: string;
   query?: string;
   scope?: "all" | "files" | "images-pdfs" | "pages" | "subtree";
+  turns?: SearchConversationTurnInput[];
+};
+
+type SearchConversationTurnInput = {
+  error?: string | null;
+  evidenceDisplay?: EvidenceDisplayMode | null;
+  hiddenPrompt?: string | null;
+  query?: string | null;
+  renderedAnswerPayload?: string | null;
+  resourcesSummary?: string | null;
+  responseMode?: SearchResponseMode | null;
+  sourceRefs?: string[];
 };
 
 type SearchEvidence = {
@@ -298,9 +334,9 @@ type ModelDigestResponse = {
 };
 
 type ModelAnswerResponse = {
-  answer?: string;
   confidence?: string;
   limitations?: string[];
+  renderedAnswerPayload?: string;
   sourceRefs?: string[];
 };
 
@@ -309,33 +345,121 @@ type SearchResponseMode = "answer" | "mixed" | "search";
 type EvidenceDisplayMode = "inline" | "primary" | "subtle";
 
 type SearchIntentDecision = {
+  discardSourceRefs: string[];
   evidenceDisplay: EvidenceDisplayMode;
   evidenceSummary: string;
   followUpQueries: string[];
   progressNotes: string[];
+  readSourceRefs: string[];
   reason: string;
   responseMode: SearchResponseMode;
 };
 
+type SearchProgressEvent = {
+  at?: string;
+  id?: string;
+  message: string;
+  parallelGroup?: string;
+  phase?: "answer" | "answer-reasoning" | "answer-summary" | "intent" | "retrieval";
+  status?: "done" | "running";
+  type: "progress";
+};
+
 type ModelSearchIntentResponse = {
+  discardSourceRefs?: string[];
   evidenceDisplay?: string;
   evidenceSummary?: string;
   followUpQueries?: string[];
   progressNotes?: string[];
+  readSourceRefs?: string[];
   reason?: string;
   responseMode?: string;
 };
 
+type SearchConversationTurnContext = {
+  answerText: string;
+  error: string | null;
+  evidenceDisplay: EvidenceDisplayMode | null;
+  hiddenPrompt: string | null;
+  query: string;
+  resourcesSummary: string | null;
+  responseMode: SearchResponseMode | null;
+  sourceRefs: string[];
+};
+
+type SearchTurnContext = {
+  conversationSummary: string;
+  enriched: boolean;
+  progressNotes: string[];
+  searchQuery: string;
+  turns: SearchConversationTurnContext[];
+};
+
+type SearchRetrievalPlannerState = {
+  hasStrongEvidence: boolean;
+  refinementPassesCompleted: number;
+  weakEvidenceRefinementLimit: number;
+};
+
+type SearchClarificationDecision = {
+  confidence: "high" | "low" | "medium";
+  needsClarification: boolean;
+  progressNote: string;
+  question: string;
+  reason: string;
+  suggestions: string[];
+};
+
+type ModelSearchClarificationResponse = {
+  confidence?: string;
+  needsClarification?: boolean;
+  progressNote?: string;
+  question?: string;
+  reason?: string;
+  suggestions?: string[];
+};
+
+type ModelSearchTurnEnrichmentResponse = {
+  conversationSummary?: string;
+  progressNotes?: string[];
+  searchQuery?: string;
+};
+
+type DocumentRead = {
+  bytes: number;
+  file: {
+    extension: string;
+    kind: string;
+    path: string;
+    title: string;
+  };
+  sourceRefs: string[];
+  status: "attached" | "metadata-only" | "missing" | "text";
+  text?: string;
+};
+
+type DocumentReadContext = {
+  attachments: ModelInputAttachment[];
+  readings: DocumentRead[];
+};
+
+type ModelInputAttachment = {
+  data: Buffer;
+  filename: string;
+  kind: "file" | "image";
+  mimeType: string;
+};
+
 type SearchChatStreamEvent =
   | { createdAt: string; query: string; scope: string; turnId: string; type: "turn.created" }
-  | { message: string; type: "progress" }
+  | SearchProgressEvent
   | { query: string; type: "retrieval.started" }
   | { evidence: SearchEvidence[]; evidenceFingerprint: string; type: "retrieval.evidence" }
   | { type: "intent.started" }
   | (SearchIntentDecision & { type: "intent.done" })
-  | { type: "answer.started" }
-  | { delta: string; type: "answer.delta" }
-  | { answer: SearchAnswer; type: "answer.done" }
+  | { type: "renderedAnswer.started" }
+  | { delta: string; type: "renderedAnswer.delta" }
+  | (SearchAnswer & { type: "renderedAnswer.done" })
   | {
       result: {
         answer: SearchAnswer | null;
@@ -511,15 +635,22 @@ export function createVaultMemoryIndex(options: VaultMemoryIndexOptions) {
       const config = normalizeConfig(vaultState.config);
       const query = String(input.query ?? "").trim();
       const scope = input.scope ?? "all";
-      const evidence = await searchVaultMemory(vaultState, query, scope, input.folderPath);
+      const turnContext = await enrichSearchTurn(query, normalizeConversationTurns(input.turns), answerRunner, config);
+      const evidence = await searchVaultMemory(vaultState, turnContext.searchQuery, scope, input.folderPath);
       const evidencePack = buildEvidencePack(evidence);
       const evidenceFingerprint = hashText(JSON.stringify(evidencePack.map((item) => [item.id, item.score, item.freshness])));
+      const decision = fallbackSearchIntentDecision(query, evidencePack, config);
+      const documentContext = query && config.aiAnswersEnabled ? readSourceDocuments(options.getVault(), vaultState, evidencePack, decision.readSourceRefs) : emptyDocumentReadContext();
+      const documentReadFingerprint = fingerprintDocumentReadContext(documentContext);
+      const turnContextFingerprint = fingerprintSearchTurnContext(turnContext);
       const answerConfigFingerprint = hashText(
         JSON.stringify({
           answerConcurrency: config.answerConcurrency,
           aiAnswersEnabled: config.aiAnswersEnabled,
           answerModel: config.answerModel,
           answerReasoningEffort: config.answerReasoningEffort,
+          documentReadFingerprint,
+          turnContextFingerprint,
         }),
       );
       const cacheKey = hashText(JSON.stringify({ evidenceFingerprint, query, scope, answerConfigFingerprint }));
@@ -537,7 +668,7 @@ export function createVaultMemoryIndex(options: VaultMemoryIndexOptions) {
           answer = { ...cached, cached: true };
         } else {
           try {
-            answer = await answerWithModel(query, evidencePack, answerRunner, config);
+            answer = await answerWithModel(query, evidencePack, documentContext, turnContext, answerRunner, config);
             vaultState.answerCache[cacheKey] = {
               answer,
               createdAt: new Date().toISOString(),
@@ -545,7 +676,7 @@ export function createVaultMemoryIndex(options: VaultMemoryIndexOptions) {
             };
             save();
           } catch (error) {
-            inactiveState = `OpenAI model answer runner unavailable: ${error instanceof Error ? error.message : "unknown error"}`;
+            answer = synthesizeModelFailureAnswer(query, evidencePack, error);
           }
         }
       }
@@ -586,27 +717,151 @@ export function createVaultMemoryIndex(options: VaultMemoryIndexOptions) {
       }
 
       await emit({ query, type: "retrieval.started" });
-      await emit({ message: "Searching ranked vault evidence.", type: "progress" });
-      let evidence = await searchVaultMemory(vaultState, query, scope, input.folderPath);
+      const conversationTurns = normalizeConversationTurns(input.turns);
+      const shouldEnrich = shouldEnrichSearchTurn(conversationTurns, config);
+      if (shouldEnrich) {
+        await emit(progressEvent("retrieval.context", "Linking this query to prior turns.", "retrieval", "running"));
+      }
+      const turnContext = await enrichSearchTurn(query, conversationTurns, answerRunner, config);
+      if (shouldEnrich) {
+        if (turnContext.enriched) {
+          const notes = turnContext.progressNotes.length > 0 ? turnContext.progressNotes : ["Using prior turns to refine retrieval."];
+          await emit(progressEvent("retrieval.context", notes[0] ?? "Using prior turns to refine retrieval.", "retrieval", "done"));
+          for (const [index, note] of notes.slice(1).entries()) {
+            await emit(progressEvent(`retrieval.context.${index + 1}`, note, "retrieval", "done"));
+          }
+        } else {
+          await emit(progressEvent("retrieval.context", "Prior-turn enrichment unavailable; searching the current query.", "retrieval", "done"));
+        }
+      }
+      await emit(
+        progressEvent(
+          "retrieval.search",
+          turnContext.searchQuery === query ? "Searching ranked vault evidence." : "Searching ranked vault evidence with conversation context.",
+          "retrieval",
+          "done",
+        ),
+      );
+      const clarificationPromise = checkSearchQueryClarity(query, turnContext, answerRunner, config);
+      const evidencePromise = searchVaultMemory(vaultState, turnContext.searchQuery, scope, input.folderPath, searchRetrievalBatchSize);
+      const [clarificationDecision, initialEvidence] = await Promise.all([clarificationPromise, evidencePromise]);
+      let evidence = initialEvidence;
       let evidencePack = buildEvidencePack(evidence);
       let evidenceFingerprint = evidenceFingerprintFor(evidencePack);
       await emit({ evidence, evidenceFingerprint, type: "retrieval.evidence" });
 
       await emit({ type: "intent.started" });
-      const initialDecision = await classifySearchIntent(query, evidencePack, answerRunner, config);
-      let decision = initialDecision;
-      for (const note of initialDecision.progressNotes) await emit({ message: note, type: "progress" });
-      await emit({ ...decision, type: "intent.done" });
+      if (shouldStopForClarification(clarificationDecision)) {
+        const decision = clarificationIntentDecision(clarificationDecision);
+        await emit(progressEvent("intent.clarification", clarificationDecision.progressNote, "intent", "done"));
+        await emit({ ...decision, type: "intent.done" });
+        const answer = synthesizeClarificationAnswer(clarificationDecision);
+        await emit({ type: "renderedAnswer.started" });
+        await emit({ ...answer, type: "renderedAnswer.done" });
+        await emit({
+          result: {
+            answer,
+            evidence,
+            evidenceDisplay: decision.evidenceDisplay,
+            evidenceSummary: decision.evidenceSummary,
+            evidenceFingerprint,
+            inactiveState: null,
+            responseMode: decision.responseMode,
+            scope,
+          },
+          type: "turn.done",
+        });
+        return;
+      }
 
-      const followUpQueries = decision.followUpQueries.filter((followUpQuery) => followUpQuery.toLowerCase() !== query.toLowerCase()).slice(0, 2);
-      for (const followUpQuery of followUpQueries) {
-        await emit({ message: `Checking related evidence for "${followUpQuery}".`, type: "progress" });
-        const followUpEvidence = await searchVaultMemory(vaultState, followUpQuery, scope, input.folderPath);
-        evidence = mergeSearchEvidence(evidence, followUpEvidence);
+      const searchedQueries = new Set([retrievalQueryKey(query), retrievalQueryKey(turnContext.searchQuery)].filter(Boolean));
+      let decision = await classifySearchIntent(query, evidencePack, turnContext, retrievalPlannerState(evidencePack, 0), answerRunner, config);
+      let retrievalPass = 0;
+
+      while (true) {
+        const prunedEvidence = pruneSearchEvidence(evidence, decision.discardSourceRefs);
+        if (prunedEvidence.length !== evidence.length) {
+          const removedCount = evidence.length - prunedEvidence.length;
+          evidence = prunedEvidence;
+          evidencePack = buildEvidencePack(evidence);
+          evidenceFingerprint = evidenceFingerprintFor(evidencePack);
+          decision = restrictSearchIntentDecisionToEvidence(decision, evidencePack);
+          await emit(progressEvent(`retrieval.prune.${retrievalPass}`, `Removed ${removedCount} low-value source(s) from the working set.`, "retrieval", "done"));
+          await emit({ evidence, evidenceFingerprint, type: "retrieval.evidence" });
+        } else {
+          decision = restrictSearchIntentDecisionToEvidence(decision, evidencePack);
+        }
+
+        for (const [index, note] of decision.progressNotes.entries()) {
+          await emit(progressEvent(`intent.${retrievalPass}.${index}`, note, "intent", "done"));
+        }
+
+        const followUpQueries = uniqueFollowUpQueries(decision.followUpQueries, searchedQueries);
+        if (followUpQueries.length === 0) break;
+        if (!hasStrongSearchEvidence(evidencePack) && retrievalPass >= searchRetrievalWeakEvidenceMaxPasses) {
+          await emit(
+            progressEvent(
+              "retrieval.follow-up.weak-evidence",
+              "Stopping refinements after weak evidence stayed thin.",
+              "retrieval",
+              "done",
+            ),
+          );
+          decision = { ...decision, followUpQueries: [] };
+          break;
+        }
+        if (retrievalPass >= searchRetrievalSafetyMaxPasses) {
+          await emit(progressEvent("retrieval.follow-up.safety", "Stopping retrieval refinements after repeated passes.", "retrieval", "done"));
+          break;
+        }
+
+        retrievalPass += 1;
+        const previousEvidenceCount = evidence.length;
+        for (const followUpQuery of followUpQueries) {
+          await emit(
+            progressEvent(
+              `retrieval.follow-up.${retrievalPass}.${hashText(followUpQuery).slice(0, 8)}`,
+              `Checking related evidence for "${followUpQuery}".`,
+              "retrieval",
+              "running",
+            ),
+          );
+        }
+        const followUpBatches = await Promise.all(
+          followUpQueries.map((followUpQuery) => searchVaultMemory(vaultState, followUpQuery, scope, input.folderPath, searchRetrievalBatchSize)),
+        );
+        for (const followUpEvidence of followUpBatches) {
+          evidence = mergeSearchEvidence(evidence, followUpEvidence);
+        }
         evidencePack = buildEvidencePack(evidence);
         evidenceFingerprint = evidenceFingerprintFor(evidencePack);
         await emit({ evidence, evidenceFingerprint, type: "retrieval.evidence" });
+
+        if (evidence.length === previousEvidenceCount) {
+          await emit(progressEvent(`retrieval.follow-up.${retrievalPass}.empty`, "No new evidence surfaced from the latest refinements.", "retrieval", "done"));
+          break;
+        }
+
+        decision = await classifySearchIntent(query, evidencePack, turnContext, retrievalPlannerState(evidencePack, retrievalPass), answerRunner, config);
       }
+
+      await emit({ ...decision, type: "intent.done" });
+
+      const documentContext = config.aiAnswersEnabled
+        ? readSourceDocuments(options.getVault(), vaultState, evidencePack, decision.readSourceRefs)
+        : emptyDocumentReadContext();
+      for (const document of documentContext.readings) {
+        await emit(
+          progressEvent(
+            `retrieval.read.${hashText(document.file.path).slice(0, 8)}`,
+            `Reading source document "${document.file.title}".`,
+            "retrieval",
+            "done",
+          ),
+        );
+      }
+      const documentReadFingerprint = fingerprintDocumentReadContext(documentContext);
+      const turnContextFingerprint = fingerprintSearchTurnContext(turnContext);
 
       const answerConfigFingerprint = hashText(
         JSON.stringify({
@@ -614,7 +869,9 @@ export function createVaultMemoryIndex(options: VaultMemoryIndexOptions) {
           aiAnswersEnabled: config.aiAnswersEnabled,
           answerModel: config.answerModel,
           answerReasoningEffort: config.answerReasoningEffort,
+          documentReadFingerprint,
           responseMode: decision.responseMode,
+          turnContextFingerprint,
         }),
       );
       const cacheKey = hashText(JSON.stringify({ evidenceFingerprint, query, scope, answerConfigFingerprint }));
@@ -626,24 +883,52 @@ export function createVaultMemoryIndex(options: VaultMemoryIndexOptions) {
         inactiveState = "AI answers are disabled for this vault.";
       } else {
         const cached = vaultState.answerCache[cacheKey]?.answer;
-        await emit({ type: "answer.started" });
+        await emit({ type: "renderedAnswer.started" });
         if (cached) {
           answer = { ...cached, cached: true };
-          await emit({ answer, type: "answer.done" });
+          await emit({ ...answer, type: "renderedAnswer.done" });
         } else {
+          const progressSummarizer = createRenderedAnswerProgressSummarizer(query, evidencePack, config, async (event) => {
+            await emit(event);
+          });
+          const reasoningProgress = createModelReasoningProgressEmitter(query, evidencePack, async (event) => {
+            await emit(event);
+          });
           try {
-            answer = await answerWithModelStreaming(query, evidencePack, answerRunner, config, async (delta) => {
-              await emit({ delta, type: "answer.delta" });
-            });
+            answer = await answerWithModelStreaming(
+              query,
+              evidencePack,
+              documentContext,
+              turnContext,
+              answerRunner,
+              config,
+              decision,
+              async (delta) => {
+                await emit({ delta, type: "renderedAnswer.delta" });
+                await progressSummarizer.observeDelta(delta);
+              },
+              async (delta) => {
+                await reasoningProgress.observeDelta(delta);
+              },
+              async (message) => {
+                await reasoningProgress.observeMessage(message);
+              },
+            );
+            await reasoningProgress.finish();
+            await progressSummarizer.finish();
             vaultState.answerCache[cacheKey] = {
               answer,
               createdAt: new Date().toISOString(),
               key: cacheKey,
             };
             save();
-            await emit({ answer, type: "answer.done" });
+            await emit({ ...answer, type: "renderedAnswer.done" });
           } catch (error) {
-            inactiveState = `OpenAI model answer runner unavailable: ${error instanceof Error ? error.message : "unknown error"}`;
+            progressSummarizer.cancel();
+            reasoningProgress.cancel();
+            answer = synthesizeModelFailureAnswer(query, evidencePack, error);
+            await emit(progressEvent("answer.failure", modelAnswerFailureProgress(error), "answer", "done"));
+            await emit({ ...answer, type: "renderedAnswer.done" });
           }
         }
       }
@@ -1051,7 +1336,13 @@ function applyStructuredDigest(vaultState: VaultMemoryState, file: MemoryFileRec
   addPossibleDuplicateRelationships(vaultState);
 }
 
-async function searchVaultMemory(vaultState: VaultMemoryState, query: string, scope: string, folderPath?: string): Promise<SearchEvidence[]> {
+async function searchVaultMemory(
+  vaultState: VaultMemoryState,
+  query: string,
+  scope: string,
+  folderPath?: string,
+  limit = 30,
+): Promise<SearchEvidence[]> {
   const terms = searchTermsFor(query);
   const config = normalizeConfig(vaultState.config);
   let queryEmbedding: number[] | null = null;
@@ -1096,7 +1387,7 @@ async function searchVaultMemory(vaultState: VaultMemoryState, query: string, sc
     .map((item) => ({ ...item, score: Number(item.score.toFixed(4)) }))
     .filter((item) => !query || item.score > 0)
     .sort((first, second) => second.score - first.score)
-    .slice(0, 30);
+    .slice(0, limit);
 }
 
 function evidenceForFile(file: MemoryFileRecord, terms: string[], query: string): SearchEvidence {
@@ -1222,19 +1513,43 @@ function evidenceForEvent(file: MemoryFileRecord, event: MemoryEventRecord, term
 }
 
 function buildEvidencePack(evidence: SearchEvidence[]) {
-  const seenFiles = new Set<string>();
-  const pack: SearchEvidence[] = [];
-  for (const item of evidence) {
-    if (pack.length >= 8) break;
-    if (seenFiles.has(item.file.path) && pack.length >= 4) continue;
-    pack.push(item);
-    seenFiles.add(item.file.path);
-  }
-  return pack;
+  return evidence;
 }
 
 function evidenceFingerprintFor(evidencePack: SearchEvidence[]) {
   return hashText(JSON.stringify(evidencePack.map((item) => [item.id, item.score, item.freshness])));
+}
+
+function retrievalPlannerState(evidencePack: SearchEvidence[], refinementPassesCompleted: number): SearchRetrievalPlannerState {
+  return {
+    hasStrongEvidence: hasStrongSearchEvidence(evidencePack),
+    refinementPassesCompleted,
+    weakEvidenceRefinementLimit: searchRetrievalWeakEvidenceMaxPasses,
+  };
+}
+
+function hasStrongSearchEvidence(evidencePack: SearchEvidence[]) {
+  return evidencePack.some((item) => {
+    const exact = Number(item.signals.exact ?? 0);
+    const lexical = Number(item.signals.lexical ?? 0);
+    const embedding = Number(item.signals.embedding ?? 0);
+    return exact > 0 || lexical >= 1.5 || embedding >= 0.55 || item.score >= 3;
+  });
+}
+
+function uniqueFollowUpQueries(followUpQueries: string[], searchedQueries: Set<string>) {
+  const result: string[] = [];
+  for (const followUpQuery of followUpQueries) {
+    const key = retrievalQueryKey(followUpQuery);
+    if (!key || searchedQueries.has(key)) continue;
+    searchedQueries.add(key);
+    result.push(followUpQuery);
+  }
+  return result;
+}
+
+function retrievalQueryKey(query: string) {
+  return normalizeWhitespace(query).toLowerCase();
 }
 
 function mergeSearchEvidence(current: SearchEvidence[], next: SearchEvidence[]) {
@@ -1247,13 +1562,440 @@ function mergeSearchEvidence(current: SearchEvidence[], next: SearchEvidence[]) 
   }
   return [...merged.values()]
     .map((item) => ({ ...item, score: Number(item.score.toFixed(4)) }))
+    .sort((first, second) => second.score - first.score);
+}
+
+function pruneSearchEvidence(evidence: SearchEvidence[], discardSourceRefs: string[]) {
+  const discard = new Set(normalizeStringList(discardSourceRefs).map((sourceRef) => sourceRef.slice(0, 260)));
+  if (discard.size === 0) return evidence;
+
+  const pruned = evidence.filter((item) => !evidenceRefsForPruning([item]).some((sourceRef) => discard.has(sourceRef)));
+  return pruned.length > 0 ? pruned : evidence;
+}
+
+function restrictSearchIntentDecisionToEvidence(decision: SearchIntentDecision, evidencePack: SearchEvidence[]): SearchIntentDecision {
+  const readableRefs = new Set(evidenceRefsForReading(evidencePack));
+  const discardableRefs = new Set(evidenceRefsForPruning(evidencePack));
+  return {
+    ...decision,
+    discardSourceRefs: decision.discardSourceRefs.filter((sourceRef) => discardableRefs.has(sourceRef)),
+    readSourceRefs: decision.readSourceRefs.filter((sourceRef) => readableRefs.has(sourceRef)),
+  };
+}
+
+function readSourceDocuments(
+  vault: any,
+  vaultState: VaultMemoryState,
+  evidencePack: SearchEvidence[],
+  requestedSourceRefs: string[] = [],
+): DocumentReadContext {
+  const targets = documentReadTargets(vaultState, evidencePack, requestedSourceRefs);
+  const readings: DocumentRead[] = [];
+  const attachments: ModelInputAttachment[] = [];
+  let attachedBytes = 0;
+  let promptTextChars = 0;
+
+  for (const target of targets) {
+    const served = vault.readAttachment(target.file.path);
+    if (!served?.data) {
+      readings.push({
+        bytes: 0,
+        file: documentReadFileRef(target.file),
+        sourceRefs: target.sourceRefs,
+        status: "missing",
+      });
+      continue;
+    }
+
+    const data = Buffer.from(served.data);
+    const extension = target.file.extension.toLowerCase();
+    const mimeType = typeof served.mimeType === "string" ? served.mimeType : mimeTypeForModelInput(target.file);
+    const attachableKind = attachableModelInputKind(target.file);
+    const canAttach = attachableKind && data.byteLength + attachedBytes <= documentReadMaxAttachmentBytes;
+    const text = extractSearchableText(target.file, data);
+    const remainingTextChars = documentReadMaxTextChars - promptTextChars;
+    const textSlice = remainingTextChars > 0 ? normalizeWhitespace(text).slice(0, Math.min(documentReadPerFileTextChars, remainingTextChars)) : "";
+    promptTextChars += textSlice.length;
+
+    if (canAttach) {
+      attachments.push({
+        data,
+        filename: path.basename(target.file.path),
+        kind: attachableKind,
+        mimeType,
+      });
+      attachedBytes += data.byteLength;
+    }
+
+    readings.push({
+      bytes: data.byteLength,
+      file: documentReadFileRef(target.file),
+      sourceRefs: target.sourceRefs,
+      status: canAttach ? "attached" : textSlice ? "text" : "metadata-only",
+      ...(textSlice ? { text: textSlice } : {}),
+    });
+
+    if (readings.length >= documentReadMaxFiles) break;
+    if (extension === "pdf" && attachedBytes >= documentReadMaxAttachmentBytes) break;
+  }
+
+  return { attachments, readings };
+}
+
+function emptyDocumentReadContext(): DocumentReadContext {
+  return { attachments: [], readings: [] };
+}
+
+function documentReadTargets(vaultState: VaultMemoryState, evidencePack: SearchEvidence[], requestedSourceRefs: string[]) {
+  const byPath = new Map<string, { file: MemoryFileRecord; score: number; sourceRefs: string[] }>();
+  const requested = new Set(requestedSourceRefs);
+
+  function add(file: MemoryFileRecord | null, sourceRefs: string[], score: number, requestedBoost = 0) {
+    if (!file) return;
+    const current = byPath.get(file.path);
+    const nextScore = score + requestedBoost + documentReadPriority(file);
+    if (!current) {
+      byPath.set(file.path, { file, score: nextScore, sourceRefs: dedupeSourceRefs(sourceRefs) });
+      return;
+    }
+    current.score = Math.max(current.score, nextScore);
+    current.sourceRefs = dedupeSourceRefs([...current.sourceRefs, ...sourceRefs]);
+  }
+
+  for (const sourceRef of requestedSourceRefs) {
+    add(fileForSourceRef(vaultState, sourceRef), [sourceRef], 100, 10);
+  }
+
+  for (const item of evidencePack) {
+    const requestedBoost = item.sourceRefs.some((sourceRef) => requested.has(sourceRef)) || requested.has(item.file.path) ? 10 : 0;
+    add(vaultState.files[item.file.path] ?? null, [item.file.path, ...item.sourceRefs], item.score, requestedBoost);
+    for (const sourceRef of item.sourceRefs) {
+      add(fileForSourceRef(vaultState, sourceRef), [sourceRef], item.score, requestedBoost);
+    }
+  }
+
+  return [...byPath.values()]
     .sort((first, second) => second.score - first.score)
-    .slice(0, 40);
+    .slice(0, documentReadMaxFiles);
+}
+
+function documentReadPriority(file: MemoryFileRecord) {
+  if (file.kind === "pdf" || file.kind === "image") return 12;
+  if (file.kind === "page" || textExtensions.has(file.extension.toLowerCase())) return 6;
+  return 1;
+}
+
+function evidenceRefsForReading(evidencePack: SearchEvidence[]) {
+  return dedupeSourceRefs(evidencePack.flatMap((item) => [item.file.path, item.id, ...item.sourceRefs]));
+}
+
+function evidenceRefsForPruning(evidencePack: SearchEvidence[]) {
+  return dedupeSourceRefs(evidencePack.flatMap((item) => [item.file.path, item.file.title, item.id, item.title, ...item.sourceRefs]));
+}
+
+function fileForSourceRef(vaultState: VaultMemoryState, sourceRef: string) {
+  if (vaultState.files[sourceRef]) return vaultState.files[sourceRef];
+  const span = vaultState.sourceSpans[sourceRef];
+  if (span) return vaultState.files[span.path] ?? null;
+  return null;
+}
+
+function documentReadFileRef(file: MemoryFileRecord) {
+  return {
+    extension: file.extension,
+    kind: file.kind,
+    path: file.path,
+    title: file.title,
+  };
+}
+
+function attachableModelInputKind(file: MemoryFileRecord): ModelInputAttachment["kind"] | null {
+  const extension = file.extension.toLowerCase();
+  if (modelAttachableImageExtensions.has(extension)) return "image";
+  if (extension === "pdf") return "file";
+  return null;
+}
+
+function mimeTypeForModelInput(file: MemoryFileRecord) {
+  const extension = file.extension.toLowerCase();
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "gif") return "image/gif";
+  if (extension === "webp") return "image/webp";
+  if (extension === "png") return "image/png";
+  return "application/octet-stream";
+}
+
+function fingerprintDocumentReadContext(context: DocumentReadContext) {
+  return hashText(
+    JSON.stringify(
+      context.readings.map((reading) => [
+        reading.file.path,
+        reading.bytes,
+        reading.status,
+        reading.text ? hashText(reading.text) : "",
+        reading.sourceRefs,
+      ]),
+    ),
+  );
+}
+
+function normalizeConversationTurns(input: unknown): SearchConversationTurnContext[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .slice(-conversationTurnMaxCount)
+    .map((turn) => normalizeConversationTurn(turn))
+    .filter((turn): turn is SearchConversationTurnContext => turn !== null);
+}
+
+function normalizeConversationTurn(input: unknown): SearchConversationTurnContext | null {
+  if (!input || typeof input !== "object") return null;
+  const record = input as SearchConversationTurnInput;
+  const query = normalizeWhitespace(String(record.query ?? "")).slice(0, conversationTurnMaxQueryChars);
+  const hiddenPrompt = normalizeOptionalText(record.hiddenPrompt, conversationTurnMaxPromptChars);
+  const answerText = renderedAnswerText(record.renderedAnswerPayload).slice(0, conversationTurnMaxAnswerChars);
+  const resourcesSummary = normalizeOptionalText(record.resourcesSummary, 180);
+  const error = normalizeOptionalText(record.error, 240);
+  const sourceRefs = dedupeSourceRefs(normalizeStringList(record.sourceRefs).map((sourceRef) => sourceRef.slice(0, 260))).slice(
+    0,
+    conversationTurnMaxSourceRefs,
+  );
+  if (!query && !hiddenPrompt && !answerText && sourceRefs.length === 0 && !resourcesSummary && !error) return null;
+  return {
+    answerText,
+    error,
+    evidenceDisplay: normalizeEvidenceDisplayMode(record.evidenceDisplay),
+    hiddenPrompt,
+    query,
+    resourcesSummary,
+    responseMode: normalizeSearchResponseMode(record.responseMode),
+    sourceRefs,
+  };
+}
+
+function normalizeOptionalText(value: unknown, maxChars: number) {
+  const normalized = normalizeWhitespace(String(value ?? ""));
+  return normalized ? normalized.slice(0, maxChars) : null;
+}
+
+function renderedAnswerText(value: unknown) {
+  return normalizeWhitespace(
+    String(value ?? "")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  );
+}
+
+function normalizeSearchResponseMode(value: unknown): SearchResponseMode | null {
+  return value === "answer" || value === "mixed" || value === "search" ? value : null;
+}
+
+function normalizeEvidenceDisplayMode(value: unknown): EvidenceDisplayMode | null {
+  return value === "subtle" || value === "inline" || value === "primary" ? value : null;
+}
+
+function shouldEnrichSearchTurn(turns: SearchConversationTurnContext[], config: VaultMemoryConfig) {
+  return turns.length > 0 && config.aiAnswersEnabled && !isModelRunnerDisabled();
+}
+
+function fallbackSearchTurnContext(query: string, turns: SearchConversationTurnContext[]): SearchTurnContext {
+  return {
+    conversationSummary: summarizeConversationTurns(turns),
+    enriched: false,
+    progressNotes: [],
+    searchQuery: query,
+    turns,
+  };
+}
+
+async function enrichSearchTurn(
+  query: string,
+  turns: SearchConversationTurnContext[],
+  runner: ModelRunnerState,
+  config: VaultMemoryConfig,
+): Promise<SearchTurnContext> {
+  const fallback = fallbackSearchTurnContext(query, turns);
+  if (!query || !shouldEnrichSearchTurn(turns, config)) return fallback;
+
+  try {
+    const response = await runModelJson<ModelSearchTurnEnrichmentResponse>({
+      concurrency: config.answerConcurrency,
+      cwd: process.cwd(),
+      model: config.answerModel,
+      prompt: [
+        "You are OpenWrite's conversation-aware search turn enricher.",
+        "Rewrite the current user query into the best retrieval query before source fetching.",
+        "Use prior turns to resolve pronouns, omitted subjects, follow-up wording, hidden action prompts, and references to earlier answers.",
+        "Do not answer the user. Do not invent new facts. Preserve concrete names, dates, source refs, and terms that are useful for retrieval.",
+        "Return short user-safe progress notes about how prior turns affect retrieval, not private reasoning.",
+        "",
+        `Current user query: ${query}`,
+        "",
+        "<prior_turns_json>",
+        JSON.stringify(turns, null, 2),
+        "</prior_turns_json>",
+      ].join("\n"),
+      reasoningEffort: "low",
+      runner,
+      schema: modelSearchTurnEnrichmentSchema,
+      timeoutMs: modelAnswerTimeoutMs,
+    });
+    return normalizeSearchTurnEnrichment(response, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeSearchTurnEnrichment(response: ModelSearchTurnEnrichmentResponse, fallback: SearchTurnContext): SearchTurnContext {
+  const searchQuery = normalizeWhitespace(String(response.searchQuery ?? "")).slice(0, searchTurnEnrichmentMaxQueryChars) || fallback.searchQuery;
+  const progressNotes = normalizeStringList(response.progressNotes)
+    .map((note) => note.slice(0, 180))
+    .slice(0, 3);
+  const conversationSummary = normalizeWhitespace(String(response.conversationSummary ?? "")).slice(0, 900) || fallback.conversationSummary;
+  return {
+    ...fallback,
+    conversationSummary,
+    enriched: true,
+    progressNotes,
+    searchQuery,
+  };
+}
+
+function summarizeConversationTurns(turns: SearchConversationTurnContext[]) {
+  const summary = turns
+    .slice(-3)
+    .map((turn) => {
+      const label = turn.hiddenPrompt || turn.query;
+      const answer = turn.resourcesSummary || turn.answerText;
+      return [label, answer].filter(Boolean).join(" -> ");
+    })
+    .filter(Boolean)
+    .join(" | ");
+  return summary.slice(0, 900);
+}
+
+function fingerprintSearchTurnContext(context: SearchTurnContext) {
+  return hashText(
+    JSON.stringify({
+      conversationSummary: context.conversationSummary,
+      enriched: context.enriched,
+      searchQuery: context.searchQuery,
+      turns: context.turns,
+    }),
+  );
+}
+
+function searchTurnPromptContext(query: string, turnContext: SearchTurnContext) {
+  return {
+    conversationSummary: turnContext.conversationSummary,
+    currentQuery: query,
+    enrichmentStatus: turnContext.enriched ? "model" : "fallback",
+    retrievalQuery: turnContext.searchQuery,
+    turns: turnContext.turns,
+  };
+}
+
+async function checkSearchQueryClarity(
+  query: string,
+  turnContext: SearchTurnContext,
+  runner: ModelRunnerState,
+  config: VaultMemoryConfig,
+): Promise<SearchClarificationDecision> {
+  const fallback = defaultSearchClarificationDecision();
+  if (!config.aiAnswersEnabled || isModelRunnerDisabled()) return fallback;
+
+  try {
+    const response = await runModelJson<ModelSearchClarificationResponse>({
+      concurrency: config.answerConcurrency,
+      cwd: process.cwd(),
+      model: config.answerModel,
+      prompt: [
+        "You are OpenWrite's query clarity checker.",
+        "Run as a fast sanity check in parallel with the first local retrieval pass, before the ReAct retrieval planner decides follow-up searches.",
+        "Decide whether the user's query is strongly too vague, underspecified, or deictic to search the vault usefully.",
+        "Use prior conversation context. Do not block a short follow-up if prior turns make the subject clear.",
+        "Be confident asking for clarification when the query lacks a concrete topic, target, document type, person, project, timeframe, or action.",
+        "Do not block broad but still useful queries such as 'summarize Project Alpha' or 'find onboarding PDFs'.",
+        "When clarification is needed, return one helpful question and two to four concrete suggested replacement queries the user can tap.",
+        "",
+        `Current query: ${query}`,
+        "",
+        "<conversation_context_json>",
+        JSON.stringify(searchTurnPromptContext(query, turnContext), null, 2),
+        "</conversation_context_json>",
+        "",
+        "confidence must be one of: high, medium, low.",
+        "Set needsClarification true only when clarification would clearly beat continuing retrieval.",
+        "Use confidence high only when OpenWrite should stop the retrieval planner and ask the user to clarify.",
+      ].join("\n"),
+      reasoningEffort: "low",
+      runner,
+      schema: modelSearchClarificationSchema,
+      timeoutMs: modelSearchClarityTimeoutMs,
+    });
+    return normalizeSearchClarificationDecision(response, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+function defaultSearchClarificationDecision(): SearchClarificationDecision {
+  return {
+    confidence: "low",
+    needsClarification: false,
+    progressNote: "Query is clear enough to search.",
+    question: "",
+    reason: "No clarification needed.",
+    suggestions: [],
+  };
+}
+
+function normalizeSearchClarificationDecision(
+  response: ModelSearchClarificationResponse,
+  fallback: SearchClarificationDecision,
+): SearchClarificationDecision {
+  const confidence = response.confidence === "high" || response.confidence === "medium" || response.confidence === "low" ? response.confidence : fallback.confidence;
+  const question = normalizeWhitespace(response.question ?? "").slice(0, 220);
+  const suggestions = normalizeStringList(response.suggestions)
+    .map((suggestion) => normalizeWhitespace(suggestion).slice(0, 160))
+    .filter(Boolean)
+    .slice(0, 4);
+  const needsClarification = response.needsClarification === true && Boolean(question) && suggestions.length > 0;
+  return {
+    confidence,
+    needsClarification,
+    progressNote:
+      normalizeWhitespace(response.progressNote ?? "").slice(0, 180) ||
+      (needsClarification ? "Asking for clarification before searching further." : fallback.progressNote),
+    question,
+    reason: normalizeWhitespace(response.reason ?? "").slice(0, 220) || fallback.reason,
+    suggestions,
+  };
+}
+
+function shouldStopForClarification(decision: SearchClarificationDecision) {
+  return decision.needsClarification && decision.confidence === "high";
+}
+
+function clarificationIntentDecision(clarification: SearchClarificationDecision): SearchIntentDecision {
+  return {
+    discardSourceRefs: [],
+    evidenceDisplay: "subtle",
+    evidenceSummary: "Clarification needed",
+    followUpQueries: [],
+    progressNotes: [clarification.progressNote],
+    readSourceRefs: [],
+    reason: clarification.reason,
+    responseMode: "mixed",
+  };
 }
 
 async function classifySearchIntent(
   query: string,
   evidencePack: SearchEvidence[],
+  turnContext: SearchTurnContext,
+  retrievalState: SearchRetrievalPlannerState,
   runner: ModelRunnerState,
   config: VaultMemoryConfig,
 ): Promise<SearchIntentDecision> {
@@ -1268,15 +2010,27 @@ async function classifySearchIntent(
       prompt: [
         "You are OpenWrite's search chat retrieval planner.",
         "Classify the user's query intent and decide how the mobile chat should render evidence.",
-        "Use only the query and ranked evidence summary. Do not answer the query.",
+        "Use the current query, prior conversation context, and ranked evidence summary. Do not answer the query.",
         "Return short user-safe progress notes about retrieval direction, not private reasoning.",
         "Return evidenceSummary as five words or fewer summarizing the cited resources, not the answer.",
-        "If one or two follow-up searches would improve context, include concise followUpQueries.",
+        "If additional searches would improve context, include concise followUpQueries for the next retrieval pass. Each follow-up search returns at most five sources, so prefer precise queries. Leave followUpQueries empty when enough evidence has been collected.",
+        "Be optimistic about refinement. If hasStrongEvidence is false after two or three refinement passes, stop searching unless you have a very specific high-confidence follow-up query.",
+        "If useful sources need full document inspection beyond snippets, include readSourceRefs using sourceRefs or file paths from the ranked evidence. Prefer reading PDFs, images, and any source whose snippet is insufficient.",
+        "If sources are clearly irrelevant, noisy, stale, duplicative, or superseded, include discardSourceRefs using filePath, title, or sourceRefs from ranked_evidence_json. Drop only sources you are confident are not useful for the current turn.",
         "",
-        `Query: ${query}`,
+        `Current query: ${query}`,
+        `Retrieval query used: ${turnContext.searchQuery}`,
+        "",
+        "<conversation_context_json>",
+        JSON.stringify(searchTurnPromptContext(query, turnContext), null, 2),
+        "</conversation_context_json>",
+        "",
+        "<retrieval_state_json>",
+        JSON.stringify(retrievalState),
+        "</retrieval_state_json>",
         "",
         "<ranked_evidence_json>",
-        JSON.stringify(evidencePack, null, 2),
+        evidenceContextJsonForPrompt(evidencePack),
         "</ranked_evidence_json>",
         "",
         "responseMode must be one of: answer, search, mixed.",
@@ -1285,19 +2039,26 @@ async function classifySearchIntent(
         "Use search/primary when the user mainly asks to find, list, show, locate, or browse files/snippets/sources.",
         "Use answer/subtle when the user clearly asks a direct question and the evidence is enough.",
         "Use mixed/inline when both a concise answer and visible supporting evidence are likely useful.",
+        "readSourceRefs may include several refs; OpenWrite will read those local files and attach supported images/PDFs before answer synthesis.",
+        "discardSourceRefs may include several refs; OpenWrite will remove those sources from the active working set before continuing retrieval or answering.",
       ].join("\n"),
       reasoningEffort: "low",
       runner,
       schema: modelSearchIntentSchema,
       timeoutMs: modelAnswerTimeoutMs,
     });
-    return normalizeSearchIntentDecision(response, fallback, query);
+    return normalizeSearchIntentDecision(response, fallback, query, evidencePack);
   } catch {
     return fallback;
   }
 }
 
-function normalizeSearchIntentDecision(response: ModelSearchIntentResponse, fallback: SearchIntentDecision, query: string): SearchIntentDecision {
+function normalizeSearchIntentDecision(
+  response: ModelSearchIntentResponse,
+  fallback: SearchIntentDecision,
+  query: string,
+  evidencePack: SearchEvidence[],
+): SearchIntentDecision {
   const responseMode =
     response.responseMode === "answer" || response.responseMode === "mixed" || response.responseMode === "search" ? response.responseMode : fallback.responseMode;
   const evidenceDisplay =
@@ -1306,14 +2067,24 @@ function normalizeSearchIntentDecision(response: ModelSearchIntentResponse, fall
       : defaultEvidenceDisplayForResponseMode(responseMode);
   const followUpQueries = normalizeStringList(response.followUpQueries)
     .map((candidate) => candidate.slice(0, 160))
-    .filter((candidate) => candidate && candidate.toLowerCase() !== query.toLowerCase())
-    .slice(0, 2);
+    .filter((candidate) => candidate && candidate.toLowerCase() !== query.toLowerCase());
   const progressNotes = normalizeStringList(response.progressNotes).map((note) => note.slice(0, 180)).slice(0, 3);
+  const allowedReadRefs = new Set(evidenceRefsForReading(evidencePack));
+  const readSourceRefs = normalizeStringList(response.readSourceRefs)
+    .map((sourceRef) => sourceRef.slice(0, 260))
+    .filter((sourceRef) => allowedReadRefs.has(sourceRef))
+    .slice(0, documentReadMaxFiles);
+  const allowedDiscardRefs = new Set(evidenceRefsForPruning(evidencePack));
+  const discardSourceRefs = normalizeStringList(response.discardSourceRefs)
+    .map((sourceRef) => sourceRef.slice(0, 260))
+    .filter((sourceRef) => allowedDiscardRefs.has(sourceRef));
   return {
+    discardSourceRefs,
     evidenceDisplay,
     evidenceSummary: shortEvidenceSummary(response.evidenceSummary, fallback.evidenceSummary),
     followUpQueries,
     progressNotes: progressNotes.length > 0 ? progressNotes : fallback.progressNotes,
+    readSourceRefs,
     reason: normalizeWhitespace(response.reason ?? "").slice(0, 220) || fallback.reason,
     responseMode,
   };
@@ -1329,6 +2100,7 @@ function fallbackSearchIntentDecision(query: string, evidencePack: SearchEvidenc
   const responseMode: SearchResponseMode = searchLike && !answerLike ? "search" : answerLike && !weakEvidence ? "answer" : "mixed";
   const evidenceDisplay = defaultEvidenceDisplayForResponseMode(responseMode);
   return {
+    discardSourceRefs: [],
     evidenceDisplay,
     evidenceSummary: summarizeEvidenceResources(evidencePack),
     followUpQueries: [],
@@ -1337,6 +2109,7 @@ function fallbackSearchIntentDecision(query: string, evidencePack: SearchEvidenc
         ? "Reviewing the strongest ranked evidence before deciding the response shape."
         : "Using local retrieval because AI answers are disabled.",
     ],
+    readSourceRefs: [],
     reason: "Local intent fallback.",
     responseMode,
   };
@@ -1367,30 +2140,417 @@ function defaultEvidenceDisplayForResponseMode(responseMode: SearchResponseMode)
 function synthesizeEvidenceBoundAnswer(query: string, evidencePack: SearchEvidence[]): SearchAnswer {
   if (evidencePack.length === 0) {
     return {
-      answer: `I could not find enough support in the vault for "${query}".`,
       confidence: "low",
       limitations: ["No ranked evidence matched the query."],
+      renderedAnswerPayload: `<p>I could not find enough support in the vault for "${escapeHtml(query)}".</p>`,
       sourceRefs: [],
     };
   }
 
   const top = evidencePack.slice(0, 4);
-  const lines = top.map((item, index) => `${index + 1}. ${item.title}: ${item.snippet}`);
+  const lines = top.map((item, index) => `<li><strong>${escapeHtml(item.title)}</strong>: ${escapeHtml(item.snippet)}</li>`);
   const limitations = top.some((item) => item.freshness !== "indexed")
     ? ["Some supporting evidence is not fully indexed yet."]
     : [];
 
   return {
-    answer: `Based on the ranked vault evidence for "${query}", the strongest matches are:\n${lines.join("\n")}`,
     confidence: top[0].score > 4 ? "high" : top[0].score > 1.5 ? "medium" : "low",
     limitations,
-    sourceRefs: dedupeSourceRefs(top.flatMap((item) => item.sourceRefs)).slice(0, 8),
+    renderedAnswerPayload: [
+      `<p>Based on the ranked vault evidence for "${escapeHtml(query)}", the strongest matches are:</p>`,
+      `<ol>${lines.join("")}</ol>`,
+    ].join(""),
+    sourceRefs: allowedAnswerSourceRefs(evidencePack),
   };
+}
+
+function synthesizeModelFailureAnswer(query: string, evidencePack: SearchEvidence[], error: unknown): SearchAnswer {
+  const fallback = synthesizeEvidenceBoundAnswer(query, evidencePack);
+  const explanation = modelAnswerFailureExplanation(error);
+  return {
+    ...fallback,
+    confidence: fallback.confidence === "high" ? "medium" : fallback.confidence,
+    limitations: dedupeStrings([...fallback.limitations, explanation.limitation]).slice(0, 4),
+    renderedAnswerPayload: [
+      `<p><strong>${escapeHtml(explanation.title)}</strong> ${escapeHtml(explanation.detail)}</p>`,
+      fallback.renderedAnswerPayload,
+    ].join(""),
+  };
+}
+
+function synthesizeClarificationAnswer(clarification: SearchClarificationDecision): SearchAnswer {
+  const suggestionButtons = clarification.suggestions
+    .map((suggestion) => {
+      const payload = JSON.stringify({ label: suggestion, prompt: suggestion });
+      return [
+        `<button type="button" onclick="OpenWrite.submitTurn(${escapeHtml(payload)})">`,
+        escapeHtml(suggestion),
+        "</button>",
+      ].join("");
+    })
+    .join("");
+  return {
+    confidence: "low",
+    limitations: ["The query is too vague to search the vault confidently."],
+    renderedAnswerPayload: [
+      `<section class="ow-rendered-clarification">`,
+      `<p>${escapeHtml(clarification.question)}</p>`,
+      suggestionButtons ? `<div class="ow-rendered-clarification-actions">${suggestionButtons}</div>` : "",
+      `</section>`,
+    ].join(""),
+    sourceRefs: [],
+  };
+}
+
+function modelAnswerFailureProgress(error: unknown) {
+  return modelAnswerFailureExplanation(error).progress;
+}
+
+function modelAnswerFailureExplanation(error: unknown) {
+  if (isAbortLikeError(error)) {
+    return {
+      detail: "Showing the strongest ranked evidence instead.",
+      limitation: "OpenAI answer generation timed out before completion.",
+      progress: "Model answer generation timed out; showing ranked evidence instead.",
+      title: "Model answer generation did not finish.",
+    };
+  }
+  return {
+    detail: "Showing the strongest ranked evidence instead.",
+    limitation: "OpenAI answer generation failed before completion.",
+    progress: "Model answer generation failed; showing ranked evidence instead.",
+    title: "Model answer generation failed.",
+  };
+}
+
+function isAbortLikeError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const name = error.name.toLowerCase();
+  const message = error.message.toLowerCase();
+  return name === "aborterror" || message.includes("aborted") || message.includes("abort");
+}
+
+function evidenceContextJsonForPrompt(evidencePack: SearchEvidence[]) {
+  for (const snippetChars of [220, 140, 80, 0]) {
+    const json = JSON.stringify(compactEvidenceContext(evidencePack, snippetChars));
+    if (json.length <= modelEvidencePromptMaxChars || snippetChars === 0) return json;
+  }
+  return JSON.stringify(compactEvidenceContext(evidencePack, 0));
+}
+
+function compactEvidenceContext(evidencePack: SearchEvidence[], snippetChars: number) {
+  return {
+    format: "compact-evidence-context-v1",
+    total: evidencePack.length,
+    snippets: snippetChars > 0 ? `trimmed to ${snippetChars} chars per source` : "omitted to keep model context reliable",
+    sources: evidencePack.map((item, index) => compactEvidenceSourceForPrompt(item, index, snippetChars)),
+  };
+}
+
+function compactEvidenceSourceForPrompt(item: SearchEvidence, index: number, snippetChars: number) {
+  const extraSourceRefs = item.sourceRefs.filter(
+    (sourceRef) => sourceRef && sourceRef !== item.file.path && sourceRef !== item.id && sourceRef !== item.file.title && sourceRef !== item.title,
+  );
+  return {
+    filePath: item.file.path,
+    rank: index + 1,
+    score: Number(item.score.toFixed(2)),
+    type: item.type,
+    ...(item.file.kind !== "page" ? { fileKind: item.file.kind } : {}),
+    ...(item.freshness !== "indexed" ? { freshness: item.freshness } : {}),
+    ...(item.title && item.title !== item.file.title ? { title: item.title } : {}),
+    ...(extraSourceRefs.length > 0 ? { sourceRefs: dedupeSourceRefs(extraSourceRefs).slice(0, 6) } : {}),
+    ...(snippetChars > 0 ? { snippet: item.snippet.slice(0, snippetChars) } : {}),
+  };
+}
+
+function documentReadContextJsonForPrompt(context: DocumentReadContext) {
+  let remainingTextChars = modelReadDocumentsPromptTextMaxChars;
+  return JSON.stringify(
+    context.readings.map((reading) => {
+      const text = reading.text ?? "";
+      const textLimit = Math.max(0, Math.min(modelReadDocumentsPromptPerFileMaxChars, remainingTextChars));
+      const includedText = text ? text.slice(0, textLimit) : undefined;
+      if (includedText) remainingTextChars -= includedText.length;
+      return {
+        bytes: reading.bytes,
+        file: reading.file,
+        sourceRefs: reading.sourceRefs,
+        status: reading.status,
+        ...(includedText ? { text: includedText } : {}),
+        ...(text.length > textLimit ? { textOmittedChars: text.length - textLimit } : {}),
+      };
+    }),
+  );
+}
+
+function renderedAnswerPrompt(
+  query: string,
+  evidencePack: SearchEvidence[],
+  documentContext: DocumentReadContext,
+  turnContext: SearchTurnContext,
+  {
+    evidenceDisplay,
+    responseMode,
+    schemaOutput,
+  }: {
+    evidenceDisplay: EvidenceDisplayMode;
+    responseMode: SearchResponseMode;
+    schemaOutput: boolean;
+  },
+) {
+  return [
+    "You are OpenWrite's rendered answer worker.",
+    schemaOutput
+      ? "Return JSON whose renderedAnswerPayload is the final user-facing answer."
+      : "Write only the final renderedAnswerPayload. Do not return JSON.",
+    "Rendered answer fragment contract: return a disposable embeddable HTML fragment, not a full HTML document. Do not include html, head, or body ownership.",
+    "The fragment may use HTML, CSS, JavaScript, local controls, graphics, forms, audio, video, canvas, WebGL, external enrichment, and CDN libraries freely.",
+    "Vault-specific factual claims must be grounded in the ranked evidence JSON below and present in the generated fragment. General reasoning, presentation choices, and interaction design are up to you.",
+    "OpenWrite may also provide read_documents_json and attached files/images for useful local source documents. Treat those readings and attachments as first-class source context; do not answer from snippets alone when a relevant document has been read.",
+    "For read documents with status attached, inspect the attached file/image directly as needed. PDFs are attached as input_file so page text and page images are available to capable models; images are attached as input_image.",
+    "If evidence is weak, missing, stale, or contradictory, handle that in whatever visible form best serves the user.",
+    "Return machine-readable sourceRefs separately using only filePath or sourceRefs values that appear in the ranked evidence; this metadata does not require visible citations, source lists, evidence sections, or file cards.",
+    "OpenWrite theme context: black background, high-contrast text, restrained terminal-adjacent mobile tone, system typography, compact spacing, clear hierarchy, and simple organization. Avoid card-heavy layouts, boxed sections, visible outlines, and bordered button chrome unless they are necessary for clarity.",
+    "You may use color, emojis, images, graphics, and rich media freely when they improve the answer, while keeping the overall result clean and native to OpenWrite.",
+    "Bias toward less text. Prefer visual hierarchy, layout, diagrams, charts, icons, images, emoji, and interaction when they can communicate the answer better than paragraphs.",
+    "Accessibility guidance: use semantic HTML where practical, readable contrast, touch-friendly controls, labels for interactive elements, and do not rely on hover-only behavior.",
+    "OpenWrite.capabilities: version 1; actions are submitTurn, openSource, and showEvidence. submitTurn supports string shorthand and object form with hidden prompt, label, modeHint, sourceRefs, and form-derived values. openSource supports sourceRef, focusText, and highlight. showEvidence supports optional focus sourceRef.",
+    "Bridge actions are Promise-returning and should be called only from explicit user gestures. Do not call OpenWrite actions during initial render, onMount, timers, or async setup; attach them to user-initiated controls.",
+    "When you render a control that should affect OpenWrite, wire it with JavaScript, for example button.addEventListener('click', () => OpenWrite.submitTurn({ label: 'Compare', prompt: 'Compare these findings' })) or button.addEventListener('click', () => OpenWrite.showEvidence()).",
+    `Mode context: responseMode=${responseMode}; evidenceDisplay=${evidenceDisplay}. Treat this as intent context only, not a required visible layout.`,
+    "Decide the final visible structure freely. Do not show sources, evidence, citations, file lists, or browsing controls unless that is the best answer to the user's actual query.",
+    "",
+    `Current query: ${query}`,
+    `Retrieval query used: ${turnContext.searchQuery}`,
+    "",
+    "<conversation_context_json>",
+    JSON.stringify(searchTurnPromptContext(query, turnContext), null, 2),
+    "</conversation_context_json>",
+    "",
+    "<ranked_evidence_json>",
+    evidenceContextJsonForPrompt(evidencePack),
+    "</ranked_evidence_json>",
+    "",
+    "<read_documents_json>",
+    documentReadContextJsonForPrompt(documentContext),
+    "</read_documents_json>",
+  ].join("\n");
+}
+
+function progressEvent(
+  id: string,
+  message: string,
+  phase: NonNullable<SearchProgressEvent["phase"]>,
+  status: NonNullable<SearchProgressEvent["status"]>,
+  parallelGroup?: string,
+): SearchProgressEvent {
+  return {
+    at: new Date().toISOString(),
+    id,
+    message,
+    ...(parallelGroup ? { parallelGroup } : {}),
+    phase,
+    status,
+    type: "progress",
+  };
+}
+
+function answerBuildParallelGroup(query: string, evidencePack: SearchEvidence[]) {
+  return `answer-build-${hashText(`${query}:${evidenceFingerprintFor(evidencePack)}`).slice(0, 10)}`;
+}
+
+function createModelReasoningProgressEmitter(
+  query: string,
+  evidencePack: SearchEvidence[],
+  emit: (event: SearchProgressEvent) => void | Promise<void>,
+) {
+  const parallelGroup = answerBuildParallelGroup(query, evidencePack);
+  let cancelled = false;
+  let currentSummary = "";
+  let emittedMessage = "";
+  let started = false;
+
+  async function observeDelta(delta: string) {
+    if (cancelled || !delta) return;
+    currentSummary = `${currentSummary}${delta}`;
+    const message = normalizeReasoningProgressSummary(currentSummary);
+    if (!message || message === emittedMessage) return;
+
+    emittedMessage = message;
+    started = true;
+    await emit(progressEvent("answer.reasoning", message, "answer-reasoning", "running", parallelGroup));
+  }
+
+  async function observeMessage(message: string) {
+    if (cancelled) return;
+    const normalized = normalizeReasoningProgressSummary(message);
+    if (!normalized || normalized === emittedMessage) return;
+
+    emittedMessage = normalized;
+    started = true;
+    await emit(progressEvent("answer.reasoning", normalized, "answer-reasoning", "running", parallelGroup));
+  }
+
+  async function finish() {
+    if (!started || cancelled) return;
+    await emit(progressEvent("answer.reasoning", emittedMessage || "Reasoning summary complete.", "answer-reasoning", "done", parallelGroup));
+  }
+
+  return {
+    cancel() {
+      cancelled = true;
+    },
+    finish,
+    observeDelta,
+    observeMessage,
+  };
+}
+
+function createRenderedAnswerProgressSummarizer(
+  query: string,
+  evidencePack: SearchEvidence[],
+  config: VaultMemoryConfig,
+  emit: (event: SearchProgressEvent) => void | Promise<void>,
+) {
+  const parallelGroup = answerBuildParallelGroup(query, evidencePack);
+  const pending = new Set<Promise<void>>();
+  let active = 0;
+  let cancelled = false;
+  let partialHtml = "";
+  let requestCount = 0;
+  let lastProgressAt = 0;
+  let lastProgressChars = 0;
+  let started = false;
+  let submittedChars = 0;
+
+  async function observeDelta(delta: string) {
+    if (cancelled || !delta) return;
+    partialHtml += delta;
+    const now = Date.now();
+    if (!started || shouldEmitStreamingProgress(now)) {
+      started = true;
+      lastProgressAt = now;
+      lastProgressChars = partialHtml.length;
+      await emit(progressEvent("answer.html", answerStreamingProgressMessage(partialHtml.length), "answer", "running", parallelGroup));
+    }
+    if (!shouldSummarize()) return;
+    startSummaryRequest();
+  }
+
+  function shouldEmitStreamingProgress(now: number) {
+    const charsSinceLastProgress = partialHtml.length - lastProgressChars;
+    return charsSinceLastProgress >= modelAnswerProgressCharsPerUpdate || now - lastProgressAt >= modelAnswerProgressMinUpdateMs;
+  }
+
+  function shouldSummarize() {
+    if (active >= 2) return false;
+    if (requestCount >= modelAnswerProgressMaxRequests) return false;
+    const charsSinceLastRequest = partialHtml.length - submittedChars;
+    const threshold = requestCount === 0 ? modelAnswerProgressMinChars : modelAnswerProgressChars;
+    return charsSinceLastRequest >= threshold;
+  }
+
+  function startSummaryRequest() {
+    requestCount += 1;
+    active += 1;
+    submittedChars = partialHtml.length;
+    const requestId = requestCount;
+    const progressId = `answer.summary.${requestId}`;
+    const htmlSnapshot = partialHtml.slice(-6000);
+    const task = (async () => {
+      await emit(progressEvent(progressId, "Reading partial answer document.", "answer-summary", "running", parallelGroup));
+      const summary = await summarizeRenderedAnswerProgress(query, htmlSnapshot, config);
+      if (!cancelled && summary) {
+        await emit(progressEvent(progressId, summary, "answer-summary", "done", parallelGroup));
+      }
+    })()
+      .catch(() => undefined)
+      .finally(() => {
+        active = Math.max(0, active - 1);
+        pending.delete(task);
+      });
+    pending.add(task);
+  }
+
+  async function finish() {
+    if (started && !cancelled) {
+      await emit(progressEvent("answer.html", "Answer document ready.", "answer", "done", parallelGroup));
+    }
+    if (pending.size === 0) return;
+    await Promise.race([Promise.allSettled([...pending]), sleep(modelAnswerProgressMaxWaitMs)]);
+  }
+
+  return {
+    cancel() {
+      cancelled = true;
+    },
+    finish,
+    observeDelta,
+  };
+}
+
+function answerStreamingProgressMessage(charCount: number) {
+  return `Streaming answer HTML (${charCount.toLocaleString("en-US")} chars).`;
+}
+
+async function summarizeRenderedAnswerProgress(query: string, partialHtml: string, config: VaultMemoryConfig) {
+  if (isModelRunnerDisabled()) return "";
+  const text = await runOpenAiModelText({
+    cwd: process.cwd(),
+    model: config.answerModel,
+    prompt: [
+      "You are OpenWrite's answer progress summarizer.",
+      "You receive an incomplete rendered answer HTML fragment while it is still being generated.",
+      "Return one tiny user-visible progress phrase, 4 to 10 words.",
+      "Describe what the partial fragment appears to be building or organizing.",
+      "Do not mention sources, evidence, citations, files, or implementation details unless the partial fragment itself is clearly about that.",
+      "Return plain text only. No markdown. No HTML. No quotes.",
+      "",
+      `User query: ${query}`,
+      "",
+      "<partial_rendered_answer_html>",
+      partialHtml,
+      "</partial_rendered_answer_html>",
+    ].join("\n"),
+    reasoningEffort: "none",
+    timeoutMs: modelAnswerProgressTimeoutMs,
+  });
+  return normalizeProgressSummary(text);
+}
+
+function normalizeProgressSummary(text: string) {
+  const summary = normalizeWhitespace(text.replace(/<[^>]*>/g, ""))
+    .replace(/^["'`-]+/, "")
+    .replace(/["'`]+$/, "")
+    .trim();
+  if (!summary) return "";
+  return summary.length > 120 ? `${summary.slice(0, 117).trimEnd()}...` : summary;
+}
+
+function normalizeReasoningProgressSummary(text: string) {
+  const summary = normalizeWhitespace(text.replace(/<[^>]*>/g, ""))
+    .replace(/\*\*/g, "")
+    .replace(/^#+\s*/, "")
+    .replace(/^["'`-]+/, "")
+    .replace(/["'`]+$/, "")
+    .trim();
+  if (summary.length < 12) return "";
+
+  const completeSentence = summary.match(/^(.*?[.!?])(?:\s|$)/)?.[1]?.trim();
+  const candidate = completeSentence && completeSentence.length >= 12 ? completeSentence : summary;
+  return candidate.length > 120 ? `${candidate.slice(0, 117).trimEnd()}...` : candidate;
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 async function answerWithModel(
   query: string,
   evidencePack: SearchEvidence[],
+  documentContext: DocumentReadContext,
+  turnContext: SearchTurnContext,
   runner: ModelRunnerState,
   config: VaultMemoryConfig,
 ): Promise<SearchAnswer> {
@@ -1400,21 +2560,13 @@ async function answerWithModel(
   const response = await runModelJson<ModelAnswerResponse>({
     concurrency: config.answerConcurrency,
     cwd: process.cwd(),
+    attachments: documentContext.attachments,
     model: config.answerModel,
-    prompt: [
-      "You are OpenWrite's evidence-bound vault answer worker.",
-      "Answer the user query using only the ranked evidence JSON below.",
-      "Do not use outside knowledge. If evidence is weak or missing, say so plainly.",
-      "Keep the answer concise and cite only sourceRefs that appear in the evidence.",
-      "",
-      `Query: ${query}`,
-      "",
-      "<ranked_evidence_json>",
-      JSON.stringify(evidencePack, null, 2),
-      "</ranked_evidence_json>",
-      "",
-      "Return JSON matching the schema.",
-    ].join("\n"),
+    prompt: renderedAnswerPrompt(query, evidencePack, documentContext, turnContext, {
+      evidenceDisplay: "subtle",
+      responseMode: "answer",
+      schemaOutput: true,
+    }),
     reasoningEffort: config.answerReasoningEffort,
     runner,
     schema: modelAnswerSchema,
@@ -1426,9 +2578,14 @@ async function answerWithModel(
 async function answerWithModelStreaming(
   query: string,
   evidencePack: SearchEvidence[],
+  documentContext: DocumentReadContext,
+  turnContext: SearchTurnContext,
   runner: ModelRunnerState,
   config: VaultMemoryConfig,
+  decision: Pick<SearchIntentDecision, "evidenceDisplay" | "responseMode">,
   onDelta: (delta: string) => void | Promise<void>,
+  onReasoningDelta?: (delta: string) => void | Promise<void>,
+  onReasoningLifecycle?: (message: string) => void | Promise<void>,
 ): Promise<SearchAnswer> {
   const fallback = synthesizeEvidenceBoundAnswer(query, evidencePack);
   if (isModelRunnerDisabled()) {
@@ -1438,21 +2595,16 @@ async function answerWithModelStreaming(
   const text = await withModelRunnerSlot(runner, config.answerConcurrency, async () =>
     runOpenAiModelTextStream({
       cwd: process.cwd(),
+      attachments: documentContext.attachments,
       model: config.answerModel,
       onDelta,
-      prompt: [
-        "You are OpenWrite's evidence-bound vault answer worker.",
-        "Write only the final answer to the user. Do not return JSON.",
-        "Use only the ranked evidence JSON below. Do not use outside knowledge.",
-        "If evidence is weak, missing, or contradictory, say that plainly.",
-        "Keep the answer concise. Source chips are rendered separately, so do not list raw sourceRef IDs.",
-        "",
-        `Query: ${query}`,
-        "",
-        "<ranked_evidence_json>",
-        JSON.stringify(evidencePack, null, 2),
-        "</ranked_evidence_json>",
-      ].join("\n"),
+      onReasoningDelta,
+      onReasoningLifecycle,
+      prompt: renderedAnswerPrompt(query, evidencePack, documentContext, turnContext, {
+        evidenceDisplay: decision.evidenceDisplay,
+        responseMode: decision.responseMode,
+        schemaOutput: false,
+      }),
       reasoningEffort: config.answerReasoningEffort,
       timeoutMs: modelAnswerTimeoutMs,
     }),
@@ -1462,33 +2614,38 @@ async function answerWithModelStreaming(
 }
 
 function normalizeModelAnswer(response: ModelAnswerResponse, fallback: SearchAnswer, evidencePack: SearchEvidence[]): SearchAnswer {
-  const answer = normalizeWhitespace(response.answer ?? "");
-  const allowedRefs = new Set(evidencePack.flatMap((item) => item.sourceRefs));
-  const sourceRefs = dedupeSourceRefs(normalizeStringList(response.sourceRefs).filter((sourceRef) => allowedRefs.has(sourceRef))).slice(0, 8);
+  const renderedAnswerPayload = normalizeRenderedAnswerPayload(response.renderedAnswerPayload ?? "");
+  const allowedRefs = new Set(allowedAnswerSourceRefs(evidencePack));
+  const sourceRefs = dedupeSourceRefs(normalizeStringList(response.sourceRefs).filter((sourceRef) => allowedRefs.has(sourceRef)));
   const confidence = response.confidence === "high" || response.confidence === "medium" || response.confidence === "low" ? response.confidence : fallback.confidence;
-  if (!answer) return fallback;
+  if (!renderedAnswerPayload) return fallback;
   return {
-    answer,
     confidence,
     limitations: normalizeStringList(response.limitations).slice(0, 4),
+    renderedAnswerPayload,
     sourceRefs: sourceRefs.length > 0 ? sourceRefs : fallback.sourceRefs,
   };
 }
 
 function normalizeStreamingModelAnswer(text: string, fallback: SearchAnswer, evidencePack: SearchEvidence[]): SearchAnswer {
-  const answer = normalizeWhitespace(text);
-  if (!answer) return fallback;
-  const sourceRefs = dedupeSourceRefs(evidencePack.flatMap((item) => item.sourceRefs)).slice(0, 8);
+  const renderedAnswerPayload = normalizeRenderedAnswerPayload(text);
+  if (!renderedAnswerPayload) return fallback;
+  const sourceRefs = allowedAnswerSourceRefs(evidencePack);
   const topScore = evidencePack[0]?.score ?? 0;
   return {
-    answer,
     confidence: topScore > 4 ? "high" : topScore > 1.5 ? "medium" : "low",
     limitations: evidencePack.length === 0 ? ["No ranked evidence matched the query."] : [],
+    renderedAnswerPayload,
     sourceRefs: sourceRefs.length > 0 ? sourceRefs : fallback.sourceRefs,
   };
 }
 
+function allowedAnswerSourceRefs(evidencePack: SearchEvidence[]) {
+  return dedupeSourceRefs(evidencePack.flatMap((item) => [item.file.path, ...item.sourceRefs]));
+}
+
 async function runModelJson<T>({
+  attachments = [],
   concurrency,
   cwd,
   imagePaths = [],
@@ -1499,6 +2656,7 @@ async function runModelJson<T>({
   schema,
   timeoutMs,
 }: {
+  attachments?: ModelInputAttachment[];
   concurrency: number;
   cwd: string;
   imagePaths?: string[];
@@ -1519,6 +2677,7 @@ async function runModelJson<T>({
       "</json_schema>",
     ].join("\n");
     const output = await runOpenAiModelText({
+      attachments,
       cwd,
       imagePaths,
       model,
@@ -1531,12 +2690,14 @@ async function runModelJson<T>({
 }
 
 async function runOpenAiModelText({
+  attachments = [],
   imagePaths = [],
   model = openAiModelModel("validation"),
   prompt,
   reasoningEffort = openAiModelReasoningEffort("validation"),
   timeoutMs,
 }: {
+  attachments?: ModelInputAttachment[];
   cwd: string;
   imagePaths?: string[];
   model?: string;
@@ -1554,7 +2715,7 @@ async function runOpenAiModelText({
         ...(reasoningEnabled ? { include: ["reasoning.encrypted_content"], reasoning: { effort: reasoningEffort, summary: "auto" } } : { include: [] }),
         input: [
           {
-            content: openAiModelUserContent(prompt, imagePaths),
+            content: openAiModelUserContent(prompt, imagePaths, attachments),
             role: "user",
           },
         ],
@@ -1579,17 +2740,23 @@ async function runOpenAiModelText({
 }
 
 async function runOpenAiModelTextStream({
+  attachments = [],
   imagePaths = [],
   model = openAiModelModel("validation"),
   onDelta,
+  onReasoningDelta,
+  onReasoningLifecycle,
   prompt,
   reasoningEffort = openAiModelReasoningEffort("validation"),
   timeoutMs,
 }: {
+  attachments?: ModelInputAttachment[];
   cwd: string;
   imagePaths?: string[];
   model?: string;
   onDelta: (delta: string) => void | Promise<void>;
+  onReasoningDelta?: (delta: string) => void | Promise<void>;
+  onReasoningLifecycle?: (message: string) => void | Promise<void>;
   prompt: string;
   reasoningEffort?: string;
   timeoutMs: number;
@@ -1604,7 +2771,7 @@ async function runOpenAiModelTextStream({
         ...(reasoningEnabled ? { include: ["reasoning.encrypted_content"], reasoning: { effort: reasoningEffort, summary: "auto" } } : { include: [] }),
         input: [
           {
-            content: openAiModelUserContent(prompt, imagePaths),
+            content: openAiModelUserContent(prompt, imagePaths, attachments),
             role: "user",
           },
         ],
@@ -1623,7 +2790,7 @@ async function runOpenAiModelTextStream({
     }
 
     const contentType = response.headers.get("content-type") ?? "";
-    if (!response.body || !contentType.includes("text/event-stream")) {
+    if (!response.body || shouldBufferOpenAiModelStreamResponse(contentType)) {
       const text = extractOpenAiModelTextFromResponse(await response.text());
       if (text) await onDelta(text);
       return text;
@@ -1634,19 +2801,49 @@ async function runOpenAiModelTextStream({
     let buffer = "";
     let text = "";
     let sawDelta = false;
+    let sawReasoningLifecycle = false;
+    let sawReasoningSummaryDelta = false;
 
     async function handleBlock(block: string) {
       const parsed = parseOpenAiModelSseBlock(block);
       if (!parsed) return;
-      if (parsed.type === "response.output_text.delta" && typeof parsed.delta === "string") {
-        sawDelta = true;
-        text += parsed.delta;
-        await onDelta(parsed.delta);
+      const reasoningSummaryDelta = reasoningSummaryDeltaFromResponseEvent(parsed);
+      if (reasoningSummaryDelta) {
+        sawReasoningSummaryDelta = true;
+        await onReasoningDelta?.(reasoningSummaryDelta);
         return;
       }
-      if (parsed.type === "response.output_text.done" && typeof parsed.text === "string" && !sawDelta) {
-        text += parsed.text;
-        await onDelta(parsed.text);
+      const reasoningSummaryDone = reasoningSummaryDoneFromResponseEvent(parsed);
+      if (reasoningSummaryDone && !sawReasoningSummaryDelta) {
+        sawReasoningSummaryDelta = true;
+        await onReasoningDelta?.(reasoningSummaryDone);
+        return;
+      }
+      const reasoningLifecycle = reasoningLifecycleFromResponseEvent(parsed);
+      if (reasoningLifecycle) {
+        if (reasoningLifecycle === "Reasoning pass complete." && sawReasoningSummaryDelta) return;
+        sawReasoningLifecycle = true;
+        await onReasoningLifecycle?.(reasoningLifecycle);
+        return;
+      }
+      if (isRawReasoningDeltaEvent(parsed)) {
+        if (!sawReasoningLifecycle && !sawReasoningSummaryDelta) {
+          sawReasoningLifecycle = true;
+          await onReasoningLifecycle?.("Reasoning through the answer.");
+        }
+        return;
+      }
+      const textDelta = outputTextDeltaFromResponseEvent(parsed);
+      if (textDelta) {
+        sawDelta = true;
+        text += textDelta;
+        await onDelta(textDelta);
+        return;
+      }
+      const outputTextDone = outputTextDoneFromResponseEvent(parsed);
+      if (outputTextDone && !sawDelta) {
+        text += outputTextDone;
+        await onDelta(outputTextDone);
         return;
       }
       if (parsed.type === "response.failed") {
@@ -1676,16 +2873,206 @@ async function runOpenAiModelTextStream({
 }
 
 function parseOpenAiModelSseBlock(block: string): Record<string, unknown> | null {
+  const eventName = block
+    .split(/\r?\n/)
+    .find((line) => line.startsWith("event:"))
+    ?.slice("event:".length)
+    .trim();
   const payload = block
     .split(/\r?\n/)
     .filter((line) => line.startsWith("data:"))
     .map((line) => line.slice("data:".length).trim())
     .join("\n");
   if (!payload || payload === "[DONE]") return null;
-  return JSON.parse(payload) as Record<string, unknown>;
+  const parsed = JSON.parse(payload) as Record<string, unknown>;
+  if (typeof parsed.type !== "string" && eventName) {
+    return { ...parsed, type: eventName };
+  }
+  return parsed;
 }
 
-function openAiModelUserContent(prompt: string, imagePaths: string[]) {
+function shouldBufferOpenAiModelStreamResponse(contentType: string) {
+  const normalized = contentType.toLowerCase();
+  if (!normalized || normalized.includes("text/event-stream")) return false;
+  return normalized.includes("application/json");
+}
+
+function reasoningSummaryDeltaFromResponseEvent(event: Record<string, unknown>) {
+  const type = responseEventName(event).toLowerCase();
+  const isResponsesReasoningSummaryDelta = type.includes("reasoning") && type.includes("summary") && type.endsWith(".delta");
+  const isCodexReasoningSummaryDelta = type === "item/reasoning/summarytextdelta";
+  if (!isResponsesReasoningSummaryDelta && !isCodexReasoningSummaryDelta) return "";
+  return responseEventText(event, ["delta", "text", "content"]);
+}
+
+function reasoningSummaryDoneFromResponseEvent(event: Record<string, unknown>) {
+  const type = responseEventName(event).toLowerCase();
+  if (type.includes("reasoning") && type.includes("summary") && type.endsWith(".done")) {
+    return responseEventText(event, ["text", "delta", "content"]);
+  }
+  if (type === "response.output_item.done" || type === "item/completed") {
+    const item = responseEventRecord(event, "item");
+    if (item && item.type === "reasoning") return textFromReasoningSummaryItem(item);
+  }
+  return "";
+}
+
+function reasoningLifecycleFromResponseEvent(event: Record<string, unknown>) {
+  const type = responseEventName(event).toLowerCase();
+  if (type === "response.output_item.added" || type === "item/started") {
+    const item = responseEventRecord(event, "item");
+    if (item?.type === "reasoning") return "Reasoning through the answer.";
+  }
+  if (type === "response.output_item.done" || type === "item/completed") {
+    const item = responseEventRecord(event, "item");
+    if (item?.type === "reasoning") return "Reasoning pass complete.";
+  }
+  return "";
+}
+
+function isRawReasoningDeltaEvent(event: Record<string, unknown>) {
+  const type = responseEventName(event).toLowerCase();
+  return type === "response.reasoning_text.delta" || type === "item/reasoning/textdelta";
+}
+
+function outputTextDeltaFromResponseEvent(event: Record<string, unknown>) {
+  const type = responseEventName(event).toLowerCase();
+  if (type === "response.output_text.delta" || type === "item/agentmessage/delta") {
+    return responseEventText(event, ["delta", "text", "content"]);
+  }
+  const chatCompletionDelta = chatCompletionDeltaText(event);
+  if (chatCompletionDelta) return chatCompletionDelta;
+  return "";
+}
+
+function outputTextDoneFromResponseEvent(event: Record<string, unknown>) {
+  const type = responseEventName(event).toLowerCase();
+  if (type === "response.output_text.done") {
+    return responseEventText(event, ["text", "delta", "content"]);
+  }
+  if (type === "response.content_part.done") {
+    const part = responseEventRecord(event, "part");
+    if ((part?.type === "output_text" || part?.type === "text") && typeof part.text === "string") return part.text;
+  }
+  if (type === "response.output_item.done") {
+    const item = responseEventRecord(event, "item");
+    return item ? textFromOutputItem(item) : "";
+  }
+  if (type === "response.completed") {
+    const response = responseEventRecord(event, "response");
+    if (!response) return "";
+    try {
+      return extractOpenAiModelText(response);
+    } catch {
+      return "";
+    }
+  }
+  const chatCompletionMessage = chatCompletionMessageText(event);
+  if (chatCompletionMessage) return chatCompletionMessage;
+  return "";
+}
+
+function responseEventName(event: Record<string, unknown>) {
+  if (typeof event.type === "string") return event.type;
+  if (typeof event.method === "string") return event.method;
+  return "";
+}
+
+function responseEventText(event: Record<string, unknown>, keys: string[]) {
+  const direct = textFromRecordFields(event, keys);
+  if (direct) return direct;
+  const params = event.params;
+  if (params && typeof params === "object" && !Array.isArray(params)) {
+    return textFromRecordFields(params as Record<string, unknown>, keys);
+  }
+  return "";
+}
+
+function responseEventRecord(event: Record<string, unknown>, key: string) {
+  const direct = event[key];
+  if (direct && typeof direct === "object" && !Array.isArray(direct)) return direct as Record<string, unknown>;
+  const params = event.params;
+  if (params && typeof params === "object" && !Array.isArray(params)) {
+    const nested = (params as Record<string, unknown>)[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) return nested as Record<string, unknown>;
+  }
+  return null;
+}
+
+function textFromRecordFields(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const nested = value as Record<string, unknown>;
+      if (typeof nested.text === "string") return nested.text;
+      if (typeof nested.delta === "string") return nested.delta;
+      if (typeof nested.content === "string") return nested.content;
+    }
+  }
+  return "";
+}
+
+function textFromReasoningSummaryItem(item: Record<string, unknown>) {
+  const summary = item.summary;
+  if (!Array.isArray(summary)) return "";
+  return summary
+    .map((part) => {
+      if (!part || typeof part !== "object" || Array.isArray(part)) return "";
+      const record = part as Record<string, unknown>;
+      if ((record.type === "summary_text" || record.type === "text") && typeof record.text === "string") return record.text;
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function textFromOutputItem(item: Record<string, unknown>) {
+  if (item.type !== "message" && item.type !== "agentMessage") return "";
+  if (typeof item.text === "string") return item.text;
+  const content = item.content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (!part || typeof part !== "object" || Array.isArray(part)) return "";
+      const record = part as Record<string, unknown>;
+      if ((record.type === "output_text" || record.type === "text") && typeof record.text === "string") return record.text;
+      if (typeof record.content === "string") return record.content;
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function chatCompletionDeltaText(event: Record<string, unknown>) {
+  const choices = event.choices;
+  if (!Array.isArray(choices)) return "";
+  for (const choice of choices) {
+    if (!choice || typeof choice !== "object" || Array.isArray(choice)) continue;
+    const delta = (choice as Record<string, unknown>).delta;
+    if (!delta || typeof delta !== "object" || Array.isArray(delta)) continue;
+    const content = (delta as Record<string, unknown>).content;
+    if (typeof content === "string") return content;
+  }
+  return "";
+}
+
+function chatCompletionMessageText(event: Record<string, unknown>) {
+  const choices = event.choices;
+  if (!Array.isArray(choices)) return "";
+  for (const choice of choices) {
+    if (!choice || typeof choice !== "object" || Array.isArray(choice)) continue;
+    const message = (choice as Record<string, unknown>).message;
+    if (!message || typeof message !== "object" || Array.isArray(message)) continue;
+    const content = (message as Record<string, unknown>).content;
+    if (typeof content === "string") return content;
+  }
+  return "";
+}
+
+function openAiModelUserContent(prompt: string, imagePaths: string[], attachments: ModelInputAttachment[] = []) {
   const existingImages = imagePaths.filter((candidate) => fs.existsSync(candidate));
   return [
     { text: prompt, type: "input_text" },
@@ -1693,6 +3080,18 @@ function openAiModelUserContent(prompt: string, imagePaths: string[]) {
       image_url: imageDataUrl(imagePath),
       type: "input_image",
     })),
+    ...attachments.map((attachment) =>
+      attachment.kind === "image"
+        ? {
+            image_url: dataUrl(attachment.mimeType, attachment.data),
+            type: "input_image",
+          }
+        : {
+            file_data: dataUrl(attachment.mimeType, attachment.data),
+            filename: attachment.filename,
+            type: "input_file",
+          },
+    ),
   ];
 }
 
@@ -1797,7 +3196,11 @@ function imageDataUrl(imagePath: string) {
         : extension === "webp"
           ? "image/webp"
           : "image/png";
-  return `data:${mimeType};base64,${fs.readFileSync(imagePath).toString("base64")}`;
+  return dataUrl(mimeType, fs.readFileSync(imagePath));
+}
+
+function dataUrl(mimeType: string, data: Buffer) {
+  return `data:${mimeType};base64,${data.toString("base64")}`;
 }
 
 function parseModelJson<T>(value: string): T {
@@ -1840,26 +3243,53 @@ const modelDigestSchema = {
 const modelAnswerSchema = {
   additionalProperties: false,
   properties: {
-    answer: { type: "string" },
     confidence: { enum: ["high", "medium", "low"], type: "string" },
     limitations: { items: { type: "string" }, type: "array" },
+    renderedAnswerPayload: { type: "string" },
     sourceRefs: { items: { type: "string" }, type: "array" },
   },
-  required: ["answer", "confidence", "limitations", "sourceRefs"],
+  required: ["renderedAnswerPayload", "confidence", "limitations", "sourceRefs"],
+  type: "object",
+};
+
+const modelSearchClarificationSchema = {
+  additionalProperties: false,
+  properties: {
+    confidence: { enum: ["high", "medium", "low"], type: "string" },
+    needsClarification: { type: "boolean" },
+    progressNote: { type: "string" },
+    question: { type: "string" },
+    reason: { type: "string" },
+    suggestions: { items: { type: "string" }, type: "array" },
+  },
+  required: ["needsClarification", "confidence", "question", "suggestions", "progressNote", "reason"],
   type: "object",
 };
 
 const modelSearchIntentSchema = {
   additionalProperties: false,
   properties: {
+    discardSourceRefs: { items: { type: "string" }, type: "array" },
     evidenceDisplay: { enum: ["subtle", "inline", "primary"], type: "string" },
     evidenceSummary: { type: "string" },
     followUpQueries: { items: { type: "string" }, type: "array" },
     progressNotes: { items: { type: "string" }, type: "array" },
+    readSourceRefs: { items: { type: "string" }, type: "array" },
     reason: { type: "string" },
     responseMode: { enum: ["answer", "search", "mixed"], type: "string" },
   },
-  required: ["responseMode", "evidenceDisplay", "evidenceSummary", "followUpQueries", "progressNotes", "reason"],
+  required: ["responseMode", "evidenceDisplay", "evidenceSummary", "followUpQueries", "progressNotes", "readSourceRefs", "discardSourceRefs", "reason"],
+  type: "object",
+};
+
+const modelSearchTurnEnrichmentSchema = {
+  additionalProperties: false,
+  properties: {
+    conversationSummary: { type: "string" },
+    progressNotes: { items: { type: "string" }, type: "array" },
+    searchQuery: { type: "string" },
+  },
+  required: ["searchQuery", "conversationSummary", "progressNotes"],
   type: "object",
 };
 
@@ -2046,34 +3476,39 @@ function tokenInfo(token: string, tokenSource: Exclude<OpenAiModelTokenSource, n
 }
 
 function readChatGptLoginToken() {
+  const tokens: string[] = [];
   for (const authPath of chatGptAuthStorePaths()) {
-    const token = readChatGptLoginTokenFromStore(authPath);
-    if (token) return token;
+    tokens.push(...readChatGptLoginTokensFromStore(authPath));
   }
 
-  return null;
+  return tokens.find((token) => !tokenInfo(token, "chatgpt-login").tokenExpired) ?? tokens[0] ?? null;
 }
 
-function readChatGptLoginTokenFromStore(authPath: string) {
-  if (!fs.existsSync(authPath)) return null;
+function readChatGptLoginTokensFromStore(authPath: string) {
+  if (!fs.existsSync(authPath)) return [];
   try {
     const parsed = JSON.parse(fs.readFileSync(authPath, "utf8"));
+    const tokens: string[] = [];
+
+    const topLevelAccessToken = cleanOptionalString(objectAt(objectAt(parsed, "tokens"), "access_token"));
+    if (topLevelAccessToken) tokens.push(topLevelAccessToken);
+
     const providerTokens = objectAt(objectAt(parsed, "providers"), "openai-codex")?.tokens;
     const providerAccessToken = cleanOptionalString(objectAt(providerTokens, "access_token"));
-    if (providerAccessToken) return providerAccessToken;
+    if (providerAccessToken) tokens.push(providerAccessToken);
 
     const pool = objectAt(objectAt(parsed, "credential_pool"), "openai-codex");
     if (Array.isArray(pool)) {
       for (const entry of pool) {
         const accessToken = cleanOptionalString(objectAt(entry, "access_token"));
-        if (accessToken) return accessToken;
+        if (accessToken) tokens.push(accessToken);
       }
     }
-  } catch {
-    return null;
-  }
 
-  return null;
+    return tokens;
+  } catch {
+    return [];
+  }
 }
 
 function saveChatGptAuthTokens(tokens: Record<string, unknown>) {
@@ -2127,7 +3562,9 @@ function readJsonFile(filePath: string) {
 function chatGptAuthStorePaths() {
   const configured = cleanOptionalString(process.env.OPENWRITE_CHATGPT_AUTH_STORE);
   if (configured) return [path.resolve(configured)];
-  return Array.from(new Set([chatGptAuthStorePath(), hermesChatGptAuthStorePath()].filter((candidate): candidate is string => Boolean(candidate))));
+  return Array.from(
+    new Set([chatGptAuthStorePath(), codexChatGptAuthStorePath(), hermesChatGptAuthStorePath()].filter((candidate): candidate is string => Boolean(candidate))),
+  );
 }
 
 function chatGptAuthStorePath() {
@@ -2144,6 +3581,14 @@ function hermesChatGptAuthStorePath() {
 
   const home = cleanOptionalString(process.env.HOME) ?? cleanOptionalString(process.env.USERPROFILE);
   return home ? path.join(home, ".hermes", "auth.json") : null;
+}
+
+function codexChatGptAuthStorePath() {
+  const codexHome = cleanOptionalString(process.env.CODEX_HOME);
+  if (codexHome) return path.join(codexHome, "auth.json");
+
+  const home = cleanOptionalString(process.env.HOME) ?? cleanOptionalString(process.env.USERPROFILE);
+  return home ? path.join(home, ".codex", "auth.json") : null;
 }
 
 function objectAt(input: unknown, key: string): any {
@@ -2913,12 +4358,39 @@ function normalizeWhitespace(value: string) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeRenderedAnswerPayload(value: string) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  return `<p>${escapeHtml(normalizeWhitespace(text))}</p>`;
+}
+
+function escapeHtml(value: string) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error || "Request failed");
 }
 
 function normalizeStringList(value: unknown) {
   return Array.isArray(value) ? value.map((item) => normalizeWhitespace(String(item))).filter(Boolean) : [];
+}
+
+function dedupeStrings(values: string[]) {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    unique.push(value);
+  }
+  return unique;
 }
 
 function dedupeSourceRefs(sourceRefs: string[]) {
