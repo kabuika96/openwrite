@@ -3,10 +3,10 @@
   "private": true,
   "version": "0.1.1",
   "license": "MIT",
-  "description": "open-source, LAN-hosted, Markdown-native note app",
+  "description": "Local, agent-first household document and record management",
   "packageManager": "npm@11.11.0",
   "engines": {
-    "node": ">=22.12.0",
+    "node": ">=24.0.0",
     "npm": ">=10.0.0"
   },
   "workspaces": [
@@ -23,7 +23,8 @@
     "release:desktop": "npm run package:desktop",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:records:browser": "node --import tsx scripts/records-browser-smoke.mts"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

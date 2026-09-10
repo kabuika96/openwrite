@@ -10,7 +10,10 @@ import {
   Pilcrow,
   Quote,
   Rows3,
+  Table as TableIcon,
+  Workflow,
 } from "lucide-react";
+import { insertOpenWriteTable } from "./TableBlock";
 
 export type SlashCommand = {
   id: string;
@@ -80,6 +83,33 @@ export const slashCommands: SlashCommand[] = [
       if (chain.setDetails().run()) {
         editor.chain().focus().updateAttributes("details", { open: true }).run();
       }
+    },
+  },
+  {
+    id: "table",
+    label: "Table",
+    Icon: TableIcon,
+    run: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.run();
+      insertOpenWriteTable(editor);
+    },
+  },
+  {
+    id: "mermaid",
+    label: "Mermaid",
+    Icon: Workflow,
+    run: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain
+        .insertContent({
+          type: "codeBlock",
+          attrs: { language: "mermaid" },
+          content: [{ type: "text", text: "flowchart LR\n  Idea --> Draft\n  Draft --> Done" }],
+        })
+        .run();
     },
   },
   {

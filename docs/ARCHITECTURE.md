@@ -1,70 +1,38 @@
-# Architecture
-
-OpenWrite is a local-first PWA with a React frontend and a Node backend. The durable source of truth is the selected Markdown vault. Yjs documents are the active editing runtime for open pages, not the long-term storage format.
-
-## System Shape
+# OpenWrite Records architecture
 
 ```text
-Browser PWA or Electron desktop app shell
-  -> React app shell
-  -> Tiptap editor + Yjs page docs
-  -> Vite dev proxy
-  -> Node Hocuspocus sync/API server
-  -> Vault registry + vault filesystem modules
-  -> Markdown page files and attachment files
+Browser ─────────────────────┐
+                             ├─ loopback HTTP API ─ RecordStore ─ SQLite metadata / FTS5 / artifacts / audit
+Local agent ─ stdio MCP ──────┘                          │
+                                                      ├─ immutable SHA-256 original files
+                                                      └─ persisted extraction states ─ local converter worker
 ```
 
-## Frontend
+The server serves the built frontend and API from 127.0.0.1:8787. Vite development uses 127.0.0.1:5173. There is no sign-in and no remote access. The MCP adapter calls the HTTP service and owns no database connection or background worker.
 
-- `frontend/src/App.tsx` owns bootstrap state and chooses the desktop or mobile shell.
-- The page-tree modules own navigation, page actions, visit history, sidebar resize behavior, and vault-access context.
-- `frontend/src/editor/` owns the Tiptap editor surface, slash commands, wiki links, link editing, file/image blocks, clipboard handling, and manual save shortcuts.
-- `frontend/src/sync/` owns Hocuspocus provider setup and page-tree/page-doc sync helpers.
-- `frontend/src/styles/` contains design tokens and print-specific CSS, while `frontend/src/styles.css` contains the app-wide UI rules.
+## Modules
 
-## Desktop App Shell
+- `backend/src/records/store.ts`: records, immutable file ingest, metadata revisions, artifacts, source chunks, explicit links, audit, FTS5, integrity and backup.
+- `backend/src/records/extraction.ts`: local text, PDF/OCR, Office/ZIP conversion and the persisted extraction queue worker.
+- `backend/src/records/http.ts`: loopback/Host/Origin enforcement, HTTP contracts and static frontend serving.
+- `backend/src/records/mcp.ts`: MCP v2 tools and original-file resource adapter.
+- `backend/src/records/migrate.ts`: inventory, verified snapshots, deduplicated import, legacy derivations and explicit Markdown links.
+- `backend/src/records/cli.ts`: migration, inventory, verification and backup commands.
+- `backend/src/records/main.ts`: server and worker lifecycle.
+- `frontend/src/records/`: the household library, record detail forms and content review UI.
 
-- `desktop/` owns the Electron shell for users who want the desktop frontend experience outside a browser.
-- The shell does not start or bundle the backend. It connects to an existing OpenWrite local server on the trusted LAN.
-- On first launch, it shows a local connection screen, validates `<server-url>/api/health`, remembers the server URL in app-local user data, and then loads the shared desktop frontend with `openwrite_shell=desktop`.
-- The renderer is locked down with Node integration disabled and context isolation enabled. OpenWrite same-origin navigation stays in the app, while external web links open in the user's default browser.
-- Desktop packaging uses electron-builder. Current desktop releases are unsigned GitHub Release artifacts with manual DMG updates; most UX changes ship through the LAN-hosted server/frontend.
+## Storage
 
-## Backend
+`records.sqlite` contains records, source paths, artifacts, chunks, links, audit and the FTS5 index. Original files live at `objects/<first-two-hash-characters>/<sha256>`. Ingest writes and fsyncs a temporary object, links it to its immutable name, then commits metadata. A failed database transaction can leave an unreferenced object but cannot reference incomplete original bytes. Retrieval verifies the original hash before returning it.
 
-- `backend/src/server.ts` loads runtime configuration and starts the sync/API server.
-- `backend/src/sync-server.ts` wires Hocuspocus document hooks and HTTP API routing.
-- `backend/src/document-store.ts` bridges active Yjs documents to vault-backed persistence.
-- `backend/src/page-doc-persistence.ts` handles page-doc load/save behavior and reconnect duplicate protection.
-- `backend/src/vault-*.ts` modules own vault lifecycle, paths, page ordering, page mutations, attachments, and active-vault registry state.
-- `backend/src/page-markdown.ts` and `backend/src/markdown-*.ts` convert between Tiptap JSON and Markdown page files.
+The database runs in WAL mode with FULL synchronous durability, foreign keys and a busy timeout. Metadata edits and associated search/audit updates are atomic. Status transitions require fresh reasons. Original hashes do not change when metadata, text extraction or agent notes change. Artifacts remain append-only; search uses the latest extraction plus separate notes/legacy digests.
 
-## Key Flows
+One worker drains pending records sequentially. A crash leaves a running record that is returned to pending on the next server startup. Converters have timeouts; unknown/empty/failed formats remain visible and originals remain downloadable. The worker alone owns recovery of processing state; run only one HTTP service per library directory.
 
-### Opening a Page
+## Recovery and verification
 
-1. The app selects a page from the vault-derived page tree.
-2. The editor creates a page-doc Hocuspocus session.
-3. The backend loads the page doc from cache when available, otherwise from Markdown.
-4. Tiptap renders the active Yjs document in the browser.
+Migration snapshots the old vault and application state, hashes every file, imports without modifying the source, and verifies source and destination afterward. Identical bytes share one record and retain every source path. Credential-free legacy generated knowledge is an archived record; legacy source digests are labelled artifacts.
 
-### Editing a Page
+Backup uses SQLite `VACUUM INTO`, copies all originals referenced by that snapshot and opens a separate store to verify them. The contract suite exercises a real backup restore. All backup/snapshot directories must be outside the original source vault.
 
-1. Tiptap updates the active Yjs document.
-2. Hocuspocus syncs changes to connected local sessions.
-3. Backend debounce hooks persist the page doc back to the Markdown page file.
-4. Attachment and image blocks reference files stored in the selected vault.
-
-### Page Tree Mutations
-
-Create, rename, move, reorder, icon, and delete operations go through backend API endpoints. The backend applies the filesystem mutation, refreshes the vault-derived tree, and returns the updated state.
-
-## Architectural Decisions
-
-The ADRs in `docs/adr/` capture the main project decisions:
-
-- Local PWA baseline.
-- Realtime CRDT editor.
-- Markdown page files.
-- Vault-first architecture.
-- Electron desktop app shell.
+Read [research](records-architecture-research.md) for sources and limitations, [ADR 0013](adr/0013-agent-first-household-records.md) for superseded decisions, and [operations](records-operations.md) for commands. The prior architecture is preserved in [legacy documentation](legacy/architecture-before-records.md).

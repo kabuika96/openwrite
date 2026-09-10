@@ -7,6 +7,7 @@ import {
   openUserVault,
   revealVaultInSystem,
 } from "./vault-lifecycle.js";
+import { createVaultMemoryIndex, resolveMemoryStatePath } from "./vault-memory-index.js";
 import { resolveYjsCachePath } from "./yjs-cache-store.js";
 
 export function createDocumentStore(options: Record<string, any> = {}) {
@@ -14,6 +15,10 @@ export function createDocumentStore(options: Record<string, any> = {}) {
   const yjsCachePath = resolveYjsCachePath(options.yjsCachePath, registry.statePath);
   let vault = openInitialVault(options, registry);
   const pageDocs = createPageDocPersistence({ getVault: () => vault, yjsCachePath });
+  const memory = createVaultMemoryIndex({
+    getVault: () => vault,
+    statePath: options.memoryStatePath ?? resolveMemoryStatePath(registry.statePath),
+  });
 
   return {
     get vault() {
@@ -21,7 +26,7 @@ export function createDocumentStore(options: Record<string, any> = {}) {
     },
 
     close() {
-      // File-backed store has no long-lived handles.
+      memory.close();
     },
 
     hasVault() {
@@ -45,6 +50,8 @@ export function createDocumentStore(options: Record<string, any> = {}) {
     revealVaultInSystem() {
       revealVaultInSystem(vault);
     },
+
+    memory,
 
     loadUpdate(documentName) {
       return pageDocs.loadUpdate(documentName);

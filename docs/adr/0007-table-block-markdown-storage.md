@@ -1,0 +1,3 @@
+# Table Block Markdown Storage
+
+OpenWrite table blocks are in-page content, not vault-level database views, so they should remain inspectable in normal Markdown page files. Typed table blocks persist as regular Markdown tables with a compact `openwrite-table` HTML comment immediately before the table for column value types and table-local select options; headerless tables persist as plain Markdown tables without type metadata, using a blank Markdown header row as the codec convention. This keeps basic content portable to other Markdown tools while preserving OpenWrite-specific validation rules when the page is reopened.

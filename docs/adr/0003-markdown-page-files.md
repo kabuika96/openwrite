@@ -27,6 +27,6 @@ The persistence seam remains the Hocuspocus `loadUpdate` / `saveDocument` adapte
 
 Page content is now durable as plain Markdown and can be inspected or backed up without OpenWrite-specific database tooling.
 
-The Markdown codec becomes a core module. It must preserve the supported writing blocks well enough for normal editing: headings, paragraphs, links, bold, italic, inline code, strike, bulleted lists, numbered lists, nested lists, and todos.
+The Markdown codec becomes a core module. It must preserve the supported writing blocks well enough for normal editing: headings, paragraphs, links, bold, italic, inline code, strike, bulleted lists, numbered lists, nested lists, todos, and table blocks.
 
 Some rich ProseMirror details may not round-trip perfectly until their Markdown representation is explicitly designed. Toggle blocks currently serialize as HTML-style `<details>` output.

@@ -17,12 +17,15 @@ Use the vault filesystem as the durable source of truth.
 - The vault is a normal folder chosen on first run.
 - Users can create a new vault folder or open an existing folder as a vault.
 - The active vault path is remembered in local app state outside the vault.
+- Accepted vault files include Markdown notes, canvases, images, audio, video, and PDFs.
+- Folders are first-class vault navigation items and can group pages, attachments, and nested folders at arbitrary depth.
 - Each page is a Markdown file.
-- Nested pages live in a same-name folder next to the parent page file.
+- Nested page-style hierarchies may use normal folders rather than requiring only same-name child folders next to parent page files.
 - Page title is the Markdown filename.
 - Page icon is stored as YAML frontmatter in the Markdown file.
 - Manual sibling order is stored as YAML frontmatter in each Markdown file.
-- The page tree is derived by scanning Markdown files and same-name child folders.
+- The vault explorer is derived from folders and accepted vault files.
+- The page tree is a compatibility view over the Markdown-file subset of the broader vault-file inventory.
 - Yjs and Hocuspocus remain only as the active realtime editing runtime for open page files.
 - A derived Yjs update cache may be stored outside the vault to preserve CRDT identities across backend restarts. The cache is keyed by vault path, page id, and Markdown content hash, so the Markdown vault remains the source of truth and external Markdown edits invalidate stale cached updates.
 

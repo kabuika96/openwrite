@@ -4,11 +4,20 @@ import { useEffect, useId, type ReactNode } from "react";
 type AppDialogProps = {
   title: string;
   children: ReactNode;
+  className?: string;
   onClose?: () => void;
 };
 
-export function AppDialog({ title, children, onClose }: AppDialogProps) {
+export function AppDialog({ title, children, className, onClose }: AppDialogProps) {
   const titleId = useId();
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     if (!onClose) return;
@@ -28,7 +37,7 @@ export function AppDialog({ title, children, onClose }: AppDialogProps) {
         if (event.target === event.currentTarget) onClose?.();
       }}
     >
-      <section className="app-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section className={className ? `app-dialog ${className}` : "app-dialog"} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="app-dialog-header">
           <h2 id={titleId}>{title}</h2>
           {onClose ? (

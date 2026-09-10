@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flattenPageTree, type FlatPage, type PageNode } from "../sync/pageTree";
+import { flattenVaultExplorerPages, type VaultExplorerNode } from "../sync/vaultExplorer";
 import { activePageStorageKey, parseStoredActivePageId, reconcileActivePageId } from "./activePageState";
 import { createPageVisitHistoryState, getPageVisitHistoryPageId } from "./pageVisitHistory";
 
-export function useWorkspaceNavigation(tree: PageNode[]) {
+export function useWorkspaceNavigation(tree: PageNode[], explorer: VaultExplorerNode[] = []) {
   const [activePageId, setActivePageId] = useState<string | null>(() =>
     getInitialWorkspaceActivePageId(window.history.state, localStorage.getItem(activePageStorageKey)),
   );
-  const flatPages = useMemo(() => flattenPageTree(tree), [tree]);
+  const flatPages = useMemo(
+    () => (explorer.length > 0 ? flattenVaultExplorerPages(explorer) : flattenPageTree(tree)),
+    [explorer, tree],
+  );
   const pageIds = useMemo(() => flatPages.map((page) => page.id), [flatPages]);
   const activePage = resolveWorkspaceActivePage(activePageId, flatPages);
   const resolvedActivePageId = activePage?.id ?? null;

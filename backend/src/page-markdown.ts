@@ -12,6 +12,7 @@ import {
 import { parseInline, renderInline, textContent } from "./markdown-inline.js";
 import { getDetailsStart, parseDetails, parseInlineDetailsBlock, renderDetails } from "./markdown-details.js";
 import { getListMatch, parseList, renderList, renderTaskList } from "./markdown-lists.js";
+import { isMarkdownTableStart, parseMarkdownTable, renderMarkdownTable } from "./markdown-tables.js";
 
 export const PAGE_EDITOR_FIELD = "default";
 
@@ -61,6 +62,13 @@ function parseBlocks(lines, startIndex, stopAtListIndent = -1) {
       for (let count = 0; count < emptyParagraphCount; count += 1) {
         nodes.push({ type: "paragraph" });
       }
+      continue;
+    }
+
+    const table = parseMarkdownTable(lines, index);
+    if (table) {
+      nodes.push(table.node);
+      index = table.index;
       continue;
     }
 
@@ -145,7 +153,7 @@ function parseBlocks(lines, startIndex, stopAtListIndent = -1) {
     }
 
     const paragraphLines = [];
-    while (index < lines.length && lines[index]?.trim() && !isBlockStart(lines[index])) {
+    while (index < lines.length && lines[index]?.trim() && !isBlockStart(lines, index)) {
       paragraphLines.push(lines[index].trim());
       index += 1;
     }
@@ -173,8 +181,10 @@ function hasNonBlankLine(lines, startIndex) {
   return false;
 }
 
-function isBlockStart(line = "") {
+function isBlockStart(lines, index) {
+  const line = lines[index] ?? "";
   return (
+    isMarkdownTableStart(lines, index) ||
     /^(#{1,6})\s+/.test(line) ||
     Boolean(getDetailsStart(line)) ||
     Boolean(getFileEmbedMatch(line)) ||
@@ -212,6 +222,8 @@ function renderBlock(node, indent, index) {
       return `${indent}\`\`\`${node.attrs?.language ?? ""}\n${textContent(node)}\n${indent}\`\`\``;
     case "details":
       return renderDetails(node, indent, renderBlocks);
+    case "table":
+      return renderMarkdownTable(node, indent);
     case "imageBlock":
       return renderImageBlock(node, indent);
     case "fileBlock":

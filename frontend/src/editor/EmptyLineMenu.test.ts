@@ -4,7 +4,7 @@ import { emptyLineMenuActions, shouldShowEmptyLineMenu } from "./EmptyLineMenu";
 
 describe("empty line menu", () => {
   it("offers the compact starter blocks in order", () => {
-    expect(emptyLineMenuActions.map((action) => action.label)).toEqual(["H1", "H2", "Todo", "File", "Image"]);
+    expect(emptyLineMenuActions.map((action) => action.label)).toEqual(["H1", "H2", "Todo", "Table", "File", "Image"]);
   });
 
   it("only shows for a focused editable empty root text block", () => {

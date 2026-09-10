@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PageNode } from "./pageTree";
+import type { VaultExplorerNode } from "./vaultExplorer";
 
 type VaultTreeResponse = {
   defaultParentPath?: string;
+  explorer?: VaultExplorerNode[];
+  item?: VaultExplorerNode;
   needsVault?: boolean;
   page?: PageNode;
   recentVaults?: string[];
@@ -19,6 +22,7 @@ type VaultTreeResponse = {
 export function usePageTree() {
   const [defaultParentPath, setDefaultParentPath] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [explorer, setExplorer] = useState<VaultExplorerNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [needsVault, setNeedsVault] = useState(false);
   const [recentVaults, setRecentVaults] = useState<string[]>([]);
@@ -62,6 +66,7 @@ export function usePageTree() {
 
   function applyVaultResponse(response: VaultTreeResponse) {
     setDefaultParentPath(response.defaultParentPath ?? "");
+    setExplorer(response.explorer ?? []);
     setNeedsVault(Boolean(response.needsVault));
     setRecentVaults(response.recentVaults ?? []);
     setTree(response.tree);
@@ -72,6 +77,7 @@ export function usePageTree() {
   return {
     defaultParentPath,
     error,
+    explorer,
     loading,
     needsVault,
     recentVaults,
@@ -98,6 +104,31 @@ export function usePageTree() {
     async createPage(title: string, parentId: string | null = null, index?: number) {
       const response = await mutate("/api/pages/create", { title, parentId, index });
       return response.page?.id ?? null;
+    },
+
+    async createFolder(name: string, parentPath = "") {
+      const response = await mutate("/api/explorer/folders/create", { name, parentPath });
+      return response.item ?? null;
+    },
+
+    async createVaultFile(kind: "page", title: string, parentPath = "") {
+      const response = await mutate("/api/explorer/files/create", { kind, title, parentPath });
+      return response.item ?? null;
+    },
+
+    async renameVaultItem(path: string, name: string) {
+      const response = await mutate("/api/explorer/rename", { path, name });
+      return response.item ?? null;
+    },
+
+    async moveVaultItem(path: string, parentPath: string) {
+      const response = await mutate("/api/explorer/move", { path, parentPath });
+      return response.item ?? null;
+    },
+
+    async deleteVaultItem(path: string) {
+      await mutate("/api/explorer/delete", { path });
+      return true;
     },
 
     async renamePage(pageId: string, title: string) {

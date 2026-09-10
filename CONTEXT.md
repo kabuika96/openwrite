@@ -1,66 +1,37 @@
 # OpenWrite Context
 
-OpenWrite is a local-first, realtime Markdown-native note app for computer and mobile use. It borrows familiar interaction ideas from block editors while using its own product language, visual design, and data model.
+OpenWrite is a local-hosted, agent-first household record management system. One shared library runs on one machine. There is no sign-in and no remote access. Family members are labels; every local agent and browser has the same library access.
 
-## Domain Language
+## Domain language
 
-- Local server: the OpenWrite environment served from one machine to browsers on the same LAN.
-- Vault: the normal local folder chosen by the user that stores OpenWrite pages as Markdown files.
-- Page tree: the nested page hierarchy derived from Markdown files and same-name child folders in the vault.
-- Page: a named writing surface represented by one Markdown file in the vault.
-- Page file: the Markdown file that durably stores one page's editor content and frontmatter metadata.
-- Page doc: the collaborative Yjs document used while one page is open for realtime editing.
-- Block: an ordered content unit inside a page doc.
-- Block type: the rendering and interaction mode for a block, such as paragraph, heading, quote, divider, todo, numbered list, bulleted list, or toggle list.
-- Presence: ephemeral display name, color, cursor, and connection state for each active local session.
-- Desktop experience: the computer-oriented UI with persistent navigation and dense controls.
-- Mobile experience: the phone-oriented UI with a focused stack and touch-first actions.
-- Desktop app shell: an Electron-based desktop client that wraps the desktop experience and connects to an OpenWrite local server already running on another trusted LAN machine.
-- macOS app: the first packaged target for the desktop app shell.
-- Server connection: the remembered OpenWrite local server URL that the desktop app shell validates on first launch and reuses on later launches.
-- Server discovery: a deferred capability for finding OpenWrite local servers on the LAN automatically; the first desktop app shell slice uses manual server URL entry instead.
-- Shell flag: a small query parameter appended by the desktop app shell when loading the server URL so the shared frontend can recognize it is running in the desktop app wrapper.
-- Connection policy: the desktop app shell only connects to manually entered local or private-LAN HTTP server URLs in the first slice.
-- External navigation: the desktop app shell keeps OpenWrite same-origin navigation inside the app and opens non-OpenWrite web links in the user's default browser.
-- Server validation: the desktop app shell validates a server connection by calling the browser-facing server URL's `/api/health` route before saving it.
-- Server connection state: desktop app shell client preference stored outside the Markdown vault in the app's local user data, because it is device-specific and not note content.
-- Desktop app package: the `desktop/` npm package that owns the Electron desktop app shell and keeps the path open for macOS, Windows, and Linux targets.
-- Desktop shell first slice: a dev-runnable Electron shell that validates and remembers a server URL, loads the shared desktop frontend, and defers LAN discovery.
-- Connection screen: a local desktop app shell screen shown before a server connection is remembered; it validates the server URL before the shell loads the remote OpenWrite frontend.
-- Desktop renderer policy: remote OpenWrite frontend content runs without Node integration, with context isolation enabled, and without broad desktop filesystem access.
-- Desktop release: a GitHub Release artifact for the desktop app shell; the first target is an unsigned universal macOS build distributed outside the Mac App Store.
-- Desktop manual update: the current free release path where users download a newer DMG from GitHub Releases and replace `OpenWrite.app` in `/Applications`.
-- Desktop packaging stack: electron-builder produces unsigned desktop release artifacts from the desktop app package.
-- Desktop update flow: most UX updates come from updating the LAN-hosted server/frontend; desktop wrapper updates are occasional manual DMG installs.
-- Desktop release pipeline: version-tagged GitHub Actions builds unsigned desktop artifacts, attaches them to GitHub Releases, and uploads checksums.
-- Product version: root and desktop package versions stay aligned, and version tags represent one OpenWrite product release.
-- Release publishing: version-tagged desktop releases are published automatically rather than held as drafts, so fixes roll forward through newer versions.
-- macOS release architecture: the first desktop release target is a universal macOS build for both Apple Silicon and Intel Macs.
-- Update channel: desktop wrapper releases are published as stable GitHub Releases; automatic update channels are deferred until signed releases exist.
-- Desktop update UI: the native desktop menu points users to GitHub Releases for manual wrapper updates.
-- Desktop signing policy: current desktop releases are unsigned developer builds; Developer ID signing, notarization, and auto-update are deferred because they require the paid Apple Developer Program.
+- Record: a stable identity for one original file and its mutable household metadata.
+- Original: the immutable bytes supplied at upload/import, addressed by SHA-256 and retrievable unchanged.
+- Metadata: title, family members, category, tags, notes, expiry date and record revision.
+- Active: a record included in ordinary search.
+- Archived: retained for history, excluded from ordinary search.
+- Invalid: retained but marked as no longer reliable, excluded from ordinary search. This is a household assertion, not a legal determination.
+- Status reason: a fresh explanation required for any lifecycle change, including reactivation.
+- Content artifact: an append-only extraction, agent note or labelled legacy digest associated with an original checksum.
+- Current extraction: the latest extraction artifact; previous versions remain readable.
+- Source chunk: a citable part of an extraction, with record/artifact identity, PDF page or converter section and character offsets.
+- Connection: a directional related, supersedes, supports or attachment link between records. Links do not implicitly change status.
+- Source path: the preserved location and metadata of a file imported from a legacy vault. Multiple duplicate paths may refer to one record.
+- Local agent: an external AI agent using the stdio MCP server or loopback HTTP API; OpenWrite does not select or host its model.
+- Extraction queue: SQLite-persisted processing state; pending/running/ready/empty/failed/unsupported.
+- Migration snapshot: owner-only raw copy of the original vault and legacy app state, with a verified file-to-record manifest.
 
-## Product Principles
+## Boundaries and invariants
 
-- Local-first by default.
-- Realtime collaboration on the trusted local network.
-- Proven CRDT/editor primitives over hand-rolled concurrent editing.
-- Separate desktop and mobile UX paths where device strengths differ.
-- Contributor setup should stay in the npm and TypeScript workflow; normal contributors should not need Xcode to work on the desktop app shell.
-- One useful vertical slice before broader note-app features.
-- Plain, inspectable durability using a normal Markdown vault folder.
+The frontend and MCP adapter call the same records HTTP API. The RecordStore owns SQLite metadata, original objects, content versions, search, connections and audit history. One server-owned worker handles local conversion; MCP never creates a second worker. Cloud services, CRDT editing, chat synthesis and embedding generation are absent from the new active runtime.
 
-## First Slice
+Originals are never edited or deleted through the API. Identical uploads deduplicate by checksum. Metadata writes require the current revision. Lifecycle changes are reversible and require a reason. Content and index changes are transactional. Search defaults to active records and uses SQLite FTS5 keyword retrieval. Generated content is distinct from original evidence. Integrity checks and backups verify originals by hash.
 
-- Nested page tree with create, rename, move, and delete operations backed by file and folder moves.
-- Realtime page editing with slash commands and markdown shortcuts.
-- Page docs backed by Yjs and Tiptap/ProseMirror while editing, with Markdown page files as the durable source.
-- Anonymous local presence with display name and color in browser storage.
-- Desktop shell and mobile shell selected at runtime, sharing sync/domain code.
+SQLite and content-addressed originals live under `data/records/` by default. Source vault files remain unchanged after migration; they are not a live synchronized mirror. Both server listeners are loopback-only, and nonlocal browser/forwarding requests are rejected. There are no per-person permission boundaries.
 
-## Deferred
+## Decisions and operations
 
-- User accounts, permissions, passcodes, invite links, and internet sync.
-- Long-term guaranteed offline edits per device.
-- Tables, databases, embeds, backlinks, import/export, and full-text search.
-- Arbitrary block nesting beyond toggle-list children.
+- [ADR 0013](docs/adr/0013-agent-first-household-records.md) supersedes the previous writing/chat architecture for the active product.
+- [Research and tradeoffs](docs/records-architecture-research.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Run, MCP, API, migration and backup](docs/records-operations.md)
+- Pre-redesign terminology and uncommitted architectural work are preserved in [legacy context](docs/legacy/context-before-records.md).

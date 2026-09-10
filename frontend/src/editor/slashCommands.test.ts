@@ -58,6 +58,22 @@ describe("slash commands", () => {
       "run",
     ]);
   });
+
+  it("inserts a Mermaid code block from the slash menu", () => {
+    const calls: string[] = [];
+    const range: Range = { from: 2, to: 10 };
+    const editor = fakeEditor(calls);
+    const mermaidCommand = slashCommands.find((command) => command.id === "mermaid");
+
+    mermaidCommand?.run(editor, range);
+
+    expect(calls).toEqual([
+      "focus",
+      "deleteRange:2-10",
+      'insertContent:{"type":"codeBlock","attrs":{"language":"mermaid"},"content":[{"type":"text","text":"flowchart LR\\n  Idea --> Draft\\n  Draft --> Done"}]}',
+      "run",
+    ]);
+  });
 });
 
 function fakeEditor(calls: string[]) {
@@ -80,6 +96,10 @@ function fakeEditor(calls: string[]) {
     },
     updateAttributes(name: string, attrs: Record<string, unknown>) {
       calls.push(`updateAttributes:${name}:${JSON.stringify(attrs)}`);
+      return chain;
+    },
+    insertContent(content: unknown) {
+      calls.push(`insertContent:${JSON.stringify(content)}`);
       return chain;
     },
     run() {
