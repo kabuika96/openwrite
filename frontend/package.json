@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "lint": "npm run typecheck",
     "test": "vitest run",
@@ -34,6 +34,7 @@
     "yjs": "^13.6.27"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",

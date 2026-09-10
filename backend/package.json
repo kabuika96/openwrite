@@ -4,17 +4,21 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "main": "dist/server.js",
+  "main": "dist/records/main.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "tsx watch src/records/main.ts",
+    "start": "node dist/records/main.js",
     "build": "tsc -p tsconfig.build.json",
     "lint": "npm run typecheck",
     "test": "node --import tsx --test test/*.test.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "dev:legacy": "tsx watch src/server.ts",
+    "mcp": "node dist/records/mcp.js",
+    "records": "node --import tsx src/records/cli.ts"
   },
   "dependencies": {
     "@hocuspocus/server": "^4.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@tiptap/core": "^3.22.5",
     "@tiptap/extension-details": "^3.22.5",
     "@tiptap/extension-link": "^3.22.5",
@@ -23,9 +27,11 @@
     "@tiptap/extension-task-list": "^3.22.5",
     "@tiptap/starter-kit": "^3.22.5",
     "@tiptap/y-tiptap": "^3.0.3",
-    "yjs": "^13.6.27"
+    "yjs": "^13.6.27",
+    "zod": "^4.6.1"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^24.10.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"

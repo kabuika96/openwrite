@@ -1,0 +1,73 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { chromium } from '@playwright/test';
+import { RecordStore } from '../backend/src/records/store.js';
+import { createRecordsServer } from '../backend/src/records/http.js';
+import { chunkPages } from '../backend/src/records/extraction.js';
+
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openwrite-browser-'));
+fs.mkdirSync('.scratch/redesign-backup', { recursive: true });
+const store = new RecordStore(path.join(root, 'library'));
+for (const [filename, text] of [['Home insurance.txt', 'Policy HOME-2026 covers the residence.'], ['Appliance warranty.txt', 'Refrigerator warranty through 2028.']]) {
+  const { record } = store.ingest(Buffer.from(text), filename, 'text/plain');
+  store.addArtifact(record.id, text, 'extraction', 'smoke-fixture', chunkPages([text]));
+}
+const app = createRecordsServer(store, { worker: false, frontendPath: process.env.OPENWRITE_SMOKE_FRONTEND_PATH });
+app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
+const origin = `http://127.0.0.1:${(app.server.address() as any).port}`;
+const executablePath = process.env.OPENWRITE_CHROME_PATH || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : undefined);
+const browser = await chromium.launch({ headless: true, ...(executablePath && fs.existsSync(executablePath) ? { executablePath } : {}) });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const failures: string[] = [];
+page.on('pageerror', e => failures.push(e.message));
+try {
+  await page.goto(origin);
+  await page.getByRole('heading', { name: 'Your records' }).waitFor();
+  await page.getByRole('button', { name: /Home insurance/ }).click();
+  await page.getByLabel('Family members', { exact: true }).fill('Avery, Sam');
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await page.getByRole('button', { name: 'Contents', exact: true }).click();
+  await page.getByText('Policy HOME-2026 covers the residence.', { exact: true }).waitFor();
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Original', exact: true }).click();
+  const original = await download;
+  assert.equal(original.suggestedFilename(), 'Home insurance.txt');
+  assert.equal(fs.readFileSync(await original.path(), 'utf8'), 'Policy HOME-2026 covers the residence.');
+  await page.getByRole('button', { name: 'Connections', exact: true }).click();
+  await page.getByLabel('Record', { exact: true }).selectOption({ label: 'Appliance warranty' });
+  await page.getByRole('button', { name: 'Connect records', exact: true }).click();
+  await page.getByRole('button', { name: /Appliance warranty.*related/ }).waitFor();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  await page.getByLabel('Status', { exact: true }).selectOption('archived');
+  await page.getByLabel('Reason for status').fill('Replaced by annual renewal');
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await page.getByText('archived ·', { exact: false }).waitFor();
+  await page.getByRole('button', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: /^Archived/ }).click();
+  await page.getByRole('button', { name: /Home insurance/ }).waitFor();
+  await page.getByRole('button', { name: /^Active/ }).click();
+  await page.locator('input[type=file]').setInputFiles({ name: 'Family receipt.txt', mimeType: 'text/plain', buffer: Buffer.from('Receipt for family supplies') });
+  await page.getByRole('status').filter({ hasText: '1 file added' }).waitFor();
+  await page.getByRole('button', { name: /Family receipt/ }).waitFor();
+  await page.getByRole('searchbox', { name: 'Search records' }).fill('Refrigerator');
+  await page.getByRole('button', { name: /Appliance warranty/ }).waitFor();
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  fs.mkdirSync('.scratch/redesign-backup', { recursive: true });
+  await page.screenshot({ path: '.scratch/redesign-backup/records-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: /Appliance warranty/ }).click();
+  await page.getByLabel('Title', { exact: true }).waitFor();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'No horizontal overflow on narrow screen');
+  await page.screenshot({ path: '.scratch/redesign-backup/records-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Library', exact: true }).click();
+  assert.deepEqual(failures, [], 'No browser runtime errors');
+  console.log('PASS: browser upload, search, metadata, original download, archive, connections, narrow-screen detail and runtime checks.');
+} catch (error) {
+  console.error('Browser errors:', failures);
+  console.error((await page.locator('body').innerText()).slice(-6000));
+  await page.screenshot({ path: '.scratch/redesign-backup/browser-failure.png', fullPage: true });
+  throw error;
+} finally { await browser.close(); await app.close(); store.close(); fs.rmSync(root, { recursive: true, force: true }); }

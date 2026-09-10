@@ -1,10 +1,10 @@
 {
-  "name": "OpenWrite",
+  "name": "OpenWrite Household Records",
   "short_name": "OpenWrite",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050505",
-  "theme_color": "#050505",
+  "background_color": "#f7f8f6",
+  "theme_color": "#f7f8f6",
   "icons": [
     {
       "src": "/pwa.svg",

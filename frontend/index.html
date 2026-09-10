@@ -3,20 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#050505" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#050505" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f7f8f6" />
     <style>
-      :root{color-scheme:dark;background:#050505}
-      html,body,#root{width:100%;min-height:100%;margin:0;background:#050505;color:#f3f3f0}
-      html.ow-mobile-boot,html.ow-mobile-boot body,html.ow-mobile-boot #root{height:100dvh;min-height:100dvh;overflow:hidden;background:#050505}
+      :root{color-scheme:light;background:#f7f8f6}
+      html,body,#root{width:100%;min-height:100%;margin:0;background:#f7f8f6;color:#252a28}
     </style>
-    <script>
-      (()=>{const p=location.pathname,q=new URLSearchParams(location.search),v=q.get("openwrite_view"),m=p==="/mobile"||p.startsWith("/mobile/"),r=p==="/"||p==="",c=matchMedia("(max-width: 760px), (pointer: coarse)").matches;if(v==="mobile"||(v!=="desktop"&&(m||(r&&c))))document.documentElement.classList.add("ow-mobile-boot");})();
-    </script>
     <link rel="icon" href="/pwa.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>OpenWrite</title>
+    <title>OpenWrite · Household records</title>
   </head>
   <body>
     <div id="root"></div>

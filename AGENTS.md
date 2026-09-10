@@ -2,11 +2,12 @@
 
 ## Project Shape
 
-- `frontend/`: React, Vite, TypeScript PWA.
-- `backend/`: Node API and Markdown/file-backed persistence.
-- `desktop/`: Electron desktop app shell that connects to an existing OpenWrite LAN server.
+- `frontend/src/records/`: active React household records interface; Vite is loopback-only.
+- `backend/src/records/`: active local HTTP/MCP API, SQLite metadata/search, immutable originals, local extraction and migration.
+- `desktop/`: retained Electron shell; new records access is local-only.
 - `data/`: local runtime files, ignored by git except `.gitkeep`.
 - `docs/adr/`: architectural decisions.
+- `docs/legacy/`: preserved pre-redesign product/architecture documentation. The old editor and chat source modules are retained for rollback, not imported by active entry points.
 - `.scratch/issues/`: local markdown issue tracker.
 
 ## Agent skills
